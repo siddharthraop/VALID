@@ -111,3 +111,13 @@ async def query_endpoint(req: QueryRequest):
         "citation": citation,
         "guardrail": "G1–G5 · all passed"
     }
+
+
+from fastapi.responses import HTMLResponse
+import os
+
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "index.html")
+    with open(frontend_path, "r") as f:
+        return f.read()
