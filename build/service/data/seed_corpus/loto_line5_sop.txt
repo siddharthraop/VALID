@@ -1,0 +1,35 @@
+FLEXFORM PRECISION — STANDARD OPERATING PROCEDURE
+SOP-ELEC-014: Lockout/Tagout — Line 5 Electrical Panel
+
+1. Scope
+This procedure covers isolation of the Line 5 electrical distribution panel
+prior to any maintenance work, including fuse replacement, wiring inspection,
+or component swap. Applies to all maintenance and electrical personnel.
+
+2. Hazard Classification
+Line 5 panel feeds 480V three-phase supply to the CNC bank. High-voltage
+isolation is mandatory before the enclosure is opened. This procedure is
+governed by OSHA 29 CFR 1910.147.
+
+3. Isolation Procedure
+  Step 1: Notify shift supervisor before beginning isolation.
+  Step 2: Locate the Line 5 disconnect switch at panel LP-5, position the
+          switch to OFF.
+  Step 3: Apply a personal lockout lock to the disconnect switch handle.
+          Attach a tag with your name, date, and reason for lockout.
+  Step 4: Verify zero energy state using a rated voltage tester at all three
+          phases before touching any internal component.
+  Step 5: Only after verified zero energy state may the panel be opened.
+
+4. Fuse Replacement (after isolation complete)
+  Step 1: Identify the failed fuse position per the panel schedule label.
+  Step 2: Remove the failed fuse using an insulated fuse puller.
+  Step 3: Replace with the exact rated equivalent — do not substitute a
+          higher amperage fuse under any circumstance.
+  Step 4: Close and secure the panel before removing lockout.
+
+5. Restoration
+  Step 1: Confirm all personnel are clear of the panel.
+  Step 2: Remove personal lockout lock and tag.
+  Step 3: Return disconnect switch to ON.
+  Step 4: Verify Line 5 CNC bank powers up normally.

@@ -1,0 +1,28 @@
+FLEXFORM PRECISION — NON-CONFORMANCE REPORT
+NCR-2026-0311
+
+Date Raised: 2026-06-02
+Line: Line 3 (Haas VF-2SS)
+Reported By: Shift Supervisor
+
+Description of Non-Conformance:
+Two unplanned stoppages occurred on Line 3 within the same shift, totaling
+51 minutes of downtime. Root cause investigation traced the recurrence to
+an incorrect torque value applied during spindle bearing re-seat following
+the initial E-04 fault. The bearing retaining nut was torqued to 40 Nm
+instead of the specified 45 Nm per Section 18.4 of the Haas VF-2SS service
+manual, resulting in bearing migration under load and fault recurrence
+2 hours 34 minutes after the initial repair.
+
+Root Cause:
+Procedure value not verified against documentation at time of repair.
+Technician applied a recalled torque value rather than the documented
+45 Nm specification.
+
+Corrective Action:
+1. Retraining scheduled for maintenance technicians on Section 18.4
+   procedure, specifically the 45 Nm torque specification.
+2. Recommend point-of-need retrieval system to surface exact torque
+   values during active repairs rather than relying on recall.
+
+Status: Under review — quality meeting scheduled Friday.

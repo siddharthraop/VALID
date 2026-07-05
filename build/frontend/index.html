@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>VaultRAG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #121417; --bg2: #1b1e23; --bg3: #262a31;
+  --text: #f1efe9; --text2: #a8a49c; --text3: #6e6b65;
+  --border: #2e3238;
+  --amber: #f0a030; --amber-dim: #7a5a28; --amber-glow: rgba(240,160,48,0.28);
+  --red: #e0453a; --red-bg: #2c1917; --red-border: #6b2e28;
+  --teal: #2bbf96; --teal-bg: #142823;
+  --sans: 'Inter', system-ui, sans-serif;
+  --mono: 'IBM Plex Mono', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body { font-family: var(--sans); background: var(--bg); color: var(--text); overflow-x: hidden; }
+.screen { min-height: 100vh; display: flex; flex-direction: column; max-width: 620px; margin: 0 auto; padding: 0 1.25rem; }
+
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 0; }
+.brand { font-family: var(--mono); font-size: 13px; letter-spacing: 0.12em; color: var(--text2); text-transform: uppercase; }
+.brand strong { color: var(--amber); }
+#auth-controls { display: flex; align-items: center; }
+.avatar-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--border); background: var(--bg2); cursor: pointer; display: flex; align-items: center; justify-content: center; overflow: hidden; padding: 0; }
+.avatar-btn img { width: 100%; height: 100%; object-fit: cover; }
+.avatar-icon { width: 18px; height: 18px; opacity: 0.7; }
+.signout-link { font-family: var(--mono); font-size: 10px; color: var(--text3); background: none; border: none; cursor: pointer; margin-left: 8px; text-decoration: underline; }
+
+.mic-zone { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 0; text-align: center; }
+.mic-btn { position: relative; width: 168px; height: 168px; border-radius: 50%; border: none; background: linear-gradient(160deg, var(--amber), #c9781f); cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 0 var(--amber-glow); transition: transform 0.15s; }
+.mic-btn:active { transform: scale(0.96); }
+.mic-btn:disabled { background: var(--bg3); cursor: not-allowed; }
+.mic-btn svg { width: 56px; height: 56px; fill: #14161a; }
+.mic-btn:disabled svg { fill: var(--text3); }
+.mic-btn.listening { animation: pulse-ring 1.4s infinite; }
+.mic-btn.processing svg { animation: spin 1s linear infinite; }
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 var(--amber-glow); }
+  70% { box-shadow: 0 0 0 28px rgba(240,160,48,0); }
+  100% { box-shadow: 0 0 0 0 rgba(240,160,48,0); }
+}
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+.mic-status { margin-top: 1.5rem; font-size: 15px; color: var(--text2); min-height: 22px; }
+.mic-status.active { color: var(--amber); font-weight: 500; }
+.transcript-preview { margin-top: 0.5rem; font-size: 13px; color: var(--text3); font-style: italic; min-height: 18px; }
+
+.text-fallback { display: flex; gap: 8px; margin-top: 1.75rem; width: 100%; max-width: 440px; }
+.text-input { flex: 1; padding: 12px 14px; background: var(--bg2); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: var(--sans); font-size: 14px; }
+.text-input:focus { outline: none; border-color: var(--amber-dim); }
+.text-input::placeholder { color: var(--text3); }
+.text-submit { padding: 12px 16px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; color: var(--text2); cursor: pointer; font-size: 13px; }
+.text-submit:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.examples-row { margin-top: 1.5rem; width: 100%; max-width: 440px; }
+.examples-label { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text3); margin-bottom: 0.5rem; text-align: center; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.example-chip { font-size: 12px; padding: 6px 12px; border: 1px solid var(--border); border-radius: 99px; color: var(--text2); background: var(--bg2); cursor: pointer; }
+.example-chip:hover { background: var(--bg3); border-color: var(--amber-dim); }
+.example-chip:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.answer-wrap { width: 100%; padding-bottom: 2.5rem; }
+.answer-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 14px; padding: 1.5rem; margin-top: 1rem; animation: rise 0.25s ease; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.hazard-banner { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: 10px; padding: 12px 16px; margin-bottom: 1rem; display: flex; align-items: center; gap: 10px; }
+.hazard-banner svg { width: 22px; height: 22px; fill: var(--red); flex-shrink: 0; }
+.hazard-banner span { font-size: 13.5px; font-weight: 600; color: #f0a8a2; }
+.answer-query { font-family: var(--mono); font-size: 11px; color: var(--text3); margin-bottom: 0.75rem; }
+.answer-text { font-size: 17px; line-height: 1.6; color: var(--text); white-space: pre-wrap; }
+.answer-text strong { color: var(--amber); }
+.answer-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 1.25rem; padding-top: 0.875rem; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 10.5px; color: var(--text3); }
+.refusal-card .answer-text { color: var(--text2); font-size: 15px; }
+.refusal-card { border-color: var(--border); }
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="topbar">
+    <div class="brand"><strong>VaultRAG</strong> · FlexForm Precision</div>
+    <div id="auth-controls">
+      <button class="avatar-btn" id="signin-btn" onclick="signInWithGoogle()" title="Sign in with Google">
+        <svg class="avatar-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-9.8 1.7-9.8 5.2v1.8c0 .5.4 1 1 1h17.6c.5 0 1-.4 1-1v-1.8c0-3.5-6.3-5.2-9.8-5.2z"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div class="mic-zone">
+    <button class="mic-btn" id="mic-btn" onclick="onMicTap()" disabled>
+      <svg viewBox="0 0 24 24"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
+    <div class="mic-status" id="mic-status">Sign in to ask a question</div>
+    <div class="transcript-preview" id="transcript-preview"></div>
+
+    <div class="text-fallback">
+      <input class="text-input" id="text-input" type="text" placeholder="Or type your question…" disabled onkeydown="if(event.key==='Enter') submitText()"/>
+      <button class="text-submit" id="text-submit" onclick="submitText()" disabled>ask</button>
+    </div>
+
+    <div class="examples-row">
+      <div class="examples-label">Try an example</div>
+      <div class="chip-row">
+        <button class="example-chip" disabled onclick="runExample(this, 'E-04 fault on the Haas VF-2SS, Line 3, what do I check?')">Spindle fault, Line 3</button>
+        <button class="example-chip" disabled onclick="runExample(this, 'Fuse replacement procedure, Line 5 electrical panel')">Fuse replacement, Line 5</button>
+        <button class="example-chip" disabled onclick="runExample(this, 'What is the best pizza place near the facility?')">Off-topic question</button>
+        <button class="example-chip" disabled onclick="runExample(this, 'How do I fix the blinking light on machine 4?')">Vague issue</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="answer-wrap" id="answer-wrap"></div>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
+
+  const firebaseConfig = {
+    projectId: "REMOVED",
+    appId: "REMOVED",
+    storageBucket: "REMOVED.firebasestorage.app",
+    apiKey: "REMOVED",
+    authDomain: "REMOVED.firebaseapp.com",
+    messagingSenderId: "REMOVED",
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  window.__vaultragIdToken = null;
+
+  window.signInWithGoogle = async function() {
+    const provider = new GoogleAuthProvider();
+    try { await signInWithPopup(auth, provider); }
+    catch (err) { console.error("Sign-in failed:", err.code, err.message); }
+  };
+  window.signOutOfGoogle = async function() { await signOut(auth); };
+
+  onAuthStateChanged(auth, async (user) => {
+    const micBtn = document.getElementById('mic-btn');
+    const micStatus = document.getElementById('mic-status');
+    const textInput = document.getElementById('text-input');
+    const textSubmit = document.getElementById('text-submit');
+    const controls = document.getElementById('auth-controls');
+
+    if (user) {
+      window.__vaultragIdToken = await user.getIdToken();
+      micBtn.disabled = false;
+      textInput.disabled = false;
+      textSubmit.disabled = false;
+      document.querySelectorAll('.example-chip').forEach(c => c.disabled = false);
+      micStatus.textContent = window.__speechSupported ? 'Tap to ask' : 'Type your question below';
+      const photo = user.photoURL
+        ? `<button class="avatar-btn" title="${user.email}"><img src="${user.photoURL}" alt=""/></button>`
+        : `<button class="avatar-btn" title="${user.email}"><svg class="avatar-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-9.8 1.7-9.8 5.2v1.8c0 .5.4 1 1 1h17.6c.5 0 1-.4 1-1v-1.8c0-3.5-6.3-5.2-9.8-5.2z"/></svg></button>`;
+      controls.innerHTML = photo + '<button class="signout-link" onclick="signOutOfGoogle()">sign out</button>';
+    } else {
+      window.__vaultragIdToken = null;
+      micBtn.disabled = true;
+      textInput.disabled = true;
+      textSubmit.disabled = true;
+      document.querySelectorAll('.example-chip').forEach(c => c.disabled = true);
+      micStatus.textContent = 'Sign in to ask a question';
+      controls.innerHTML = `<button class="avatar-btn" id="signin-btn" onclick="signInWithGoogle()" title="Sign in with Google"><svg class="avatar-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M12 12c2.7 0 4.9-2.2 4.9-4.9S14.7 2.2 12 2.2 7.1 4.4 7.1 7.1 9.3 12 12 12zm0 2.4c-3.5 0-9.8 1.7-9.8 5.2v1.8c0 .5.4 1 1 1h17.6c.5 0 1-.4 1-1v-1.8c0-3.5-6.3-5.2-9.8-5.2z"/></svg></button>`;
+    }
+  });
+</script>
+
+<script>
+  const VAULTRAG_API_URL = "https://vaultrag-service-REMOVED.europe-west2.run.app";
+
+  const REFUSAL_MESSAGES = {
+    G2: "That's outside what I can help with here — I only cover this facility's equipment manuals, SOPs, and incident records.",
+    G3: "I'm not confident enough in the documentation to answer that safely. Try rephrasing with a specific fault code or part name, or check with your supervisor.",
+    G5: "I couldn't verify a source for that answer, so I'm not going to guess. Please check the manual directly or ask engineering.",
+  };
+
+  let SpeechRecognitionClass = window.SpeechRecognition || window.webkitSpeechRecognition;
+  window.__speechSupported = !!SpeechRecognitionClass;
+  let recognition = null;
+  let isListening = false;
+  let isProcessing = false;
+
+  if (window.__speechSupported) {
+    recognition = new SpeechRecognitionClass();
+    recognition.lang = 'en-GB';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      isListening = true;
+      document.getElementById('mic-btn').classList.add('listening');
+      document.getElementById('mic-status').textContent = 'Listening…';
+      document.getElementById('mic-status').classList.add('active');
+    };
+    recognition.onend = () => {
+      isListening = false;
+      document.getElementById('mic-btn').classList.remove('listening');
+      if (!isProcessing) {
+        document.getElementById('mic-status').textContent = 'Tap to ask';
+        document.getElementById('mic-status').classList.remove('active');
+      }
+    };
+    recognition.onerror = (e) => {
+      document.getElementById('mic-status').textContent = e.error === 'not-allowed'
+        ? 'Microphone permission denied — type instead'
+        : 'Didn\u2019t catch that — try again';
+      document.getElementById('mic-status').classList.remove('active');
+    };
+    recognition.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      document.getElementById('transcript-preview').textContent = '"' + transcript + '"';
+      runQuery(transcript);
+    };
+  }
+
+  function onMicTap() {
+    if (isListening) { recognition.stop(); return; }
+    if (!window.__speechSupported) {
+      document.getElementById('text-input').focus();
+      return;
+    }
+    document.getElementById('transcript-preview').textContent = '';
+    recognition.start();
+  }
+
+  function submitText() {
+    const input = document.getElementById('text-input');
+    const val = input.value.trim();
+    if (!val) return;
+    document.getElementById('transcript-preview').textContent = '"' + val + '"';
+    input.value = '';
+    runQuery(val);
+  }
+
+  function runExample(chipEl, rawQuery) {
+    if (chipEl.disabled) return;
+    document.getElementById('transcript-preview').textContent = '"' + rawQuery + '"';
+    runQuery(rawQuery);
+  }
+
+  function setProcessing(on) {
+    isProcessing = on;
+    const micBtn = document.getElementById('mic-btn');
+    const status = document.getElementById('mic-status');
+    micBtn.classList.toggle('processing', on);
+    micBtn.disabled = on;
+    document.getElementById('text-submit').disabled = on;
+    if (on) { status.textContent = 'Thinking…'; status.classList.add('active'); }
+  }
+
+  function renderHazardSVG() {
+    return '<svg viewBox="0 0 24 24"><path d="M12 2 1 21h22L12 2zm0 6.5 5.5 9.5H6.5L12 8.5zM11 11v4h2v-4h-2zm0 5.5v2h2v-2h-2z"/></svg>';
+  }
+
+  async function runQuery(rawQuery) {
+    if (!window.__vaultragIdToken) return;
+    setProcessing(true);
+    let data;
+    try {
+      const resp = await fetch(VAULTRAG_API_URL + "/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": "Bearer " + window.__vaultragIdToken },
+        body: JSON.stringify({ raw_query: rawQuery }),
+      });
+      data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail || ("HTTP " + resp.status));
+    } catch (err) {
+      renderAnswerCard({ error: true, message: "Couldn't reach the system — check your connection and try again." });
+      setProcessing(false);
+      document.getElementById('mic-status').textContent = 'Tap to ask';
+      document.getElementById('mic-status').classList.remove('active');
+      return;
+    }
+
+    setProcessing(false);
+    document.getElementById('mic-status').textContent = window.__speechSupported ? 'Tap to ask' : 'Type your question below';
+    document.getElementById('mic-status').classList.remove('active');
+
+    if (data.blocked_at) {
+      renderAnswerCard({
+        refusal: true,
+        query: rawQuery,
+        message: REFUSAL_MESSAGES[data.blocked_at] || data.refusal_reason,
+      });
+    } else {
+      renderAnswerCard({
+        query: rawQuery,
+        answer: data.answer,
+        safetyFlagged: data.safety_flagged,
+        totalMs: data.total_time_ms,
+      });
+    }
+  }
+
+  function renderAnswerCard({ error, refusal, query, message, answer, safetyFlagged, totalMs }) {
+    const wrap = document.getElementById('answer-wrap');
+    let html = '';
+
+    if (error) {
+      html = `<div class="answer-card refusal-card">
+        <div class="answer-text">${message}</div>
+      </div>`;
+    } else if (refusal) {
+      html = `<div class="answer-card refusal-card">
+        <div class="answer-query">Asked: "${query}"</div>
+        <div class="answer-text">${message}</div>
+      </div>`;
+    } else {
+      const hazardHtml = safetyFlagged
+        ? `<div class="hazard-banner">${renderHazardSVG()}<span>Lockout/Tagout or high-voltage hazard — verify isolation before proceeding</span></div>`
+        : '';
+      const formattedAnswer = answer
+        .replace(/⚠[^\n]*\n\n?/, '')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+      html = `<div class="answer-card">
+        ${hazardHtml}
+        <div class="answer-query">Asked: "${query}"</div>
+        <div class="answer-text">${formattedAnswer}</div>
+        <div class="answer-meta"><span>VaultRAG · live</span><span>${totalMs}ms</span></div>
+      </div>`;
+    }
+    wrap.innerHTML = html;
+  }
+</script>
+</body>
+</html>
