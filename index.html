@@ -1,0 +1,1561 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>VALID</title>
+<meta name="description" content="Design document: version-aware retrieval over DITA. Answers come only from content profiled for the reader's TPU generation, or VALID refuses."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+/* Layout: AlignR design-doc system, as in MANIFEST. Light theme only by design. */
+:root {
+  --bg:#fafaf8; --bg2:#f2f0eb; --bg3:#e8e5de; --card:#ffffff;
+  --text:#1a1917; --text2:#5a5852; --text3:#8a8880;
+  --border:#d8d5ce; --border2:#c8c5be;
+  --amber:#b07010; --amber-bg:#fdf4e3; --amber-border:#e8c870;
+  --teal:#0a6b52; --teal-bg:#e8f5f0; --teal-border:#80c8b0;
+  --purple:#4a40b0; --purple-bg:#f0effe; --purple-border:#b0a8e8;
+  --coral:#b03820; --coral-bg:#fdf0ec; --coral-border:#e8a090;
+  --blue:#1850a0; --blue-bg:#eaf2fe; --blue-border:#90b8e8;
+  --term:#16150f;
+  --serif:'DM Serif Display',Georgia,serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Inter',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --r:6px; --r-lg:10px;
+  color-scheme:light;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:var(--sans); background:var(--bg); color:var(--text); font-size:15px; line-height:1.7; }
+body::before { content:""; position:fixed; inset:0 0 auto; height:env(safe-area-inset-top,0px); z-index:200; background:rgba(250,250,248,0.95); }
+a { color:var(--teal); }
+a:focus-visible, button:focus-visible { outline:2px solid var(--teal); outline-offset:2px; }
+.page-wrap { display:grid; grid-template-columns:220px minmax(0,1fr); min-height:100vh; }
+
+.sidebar { position:sticky; top:0; height:100vh; overflow-y:auto; background:var(--bg2); border-right:1px solid var(--border); padding:2rem 1.25rem; display:flex; flex-direction:column; }
+.sidebar-logo { font-family:var(--mono); font-size:11px; font-weight:500; color:var(--text3); letter-spacing:0.08em; text-transform:uppercase; margin-bottom:0.25rem; }
+.sidebar-project { font-family:var(--serif); font-size:18px; color:var(--text); margin-bottom:2rem; line-height:1.2; }
+.sidebar-nav { list-style:none; display:flex; flex-direction:column; gap:2px; }
+.sidebar-nav a { display:block; font-size:12px; color:var(--text2); text-decoration:none; padding:5px 8px; border-radius:var(--r); transition:background 0.15s,color 0.15s; }
+.sidebar-nav a:hover { background:var(--bg3); color:var(--text); }
+.sidebar-nav a.active { background:var(--text); color:var(--bg); }
+.sidebar-nav .sub { padding-left:20px; font-size:11px; color:var(--text3); }
+.sidebar-divider { height:1px; background:var(--border); margin:1rem 0; }
+.stack-block { margin-top:auto; padding-top:1.5rem; border-top:1px solid var(--border); }
+.stack-title { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.75rem; }
+.stack-item { font-size:11px; color:var(--text2); padding:4px 0; border-bottom:1px solid var(--border); line-height:1.3; }
+.stack-item strong { display:block; color:var(--text); font-weight:500; font-size:11px; }
+
+.main { min-width:0; }
+.topbar { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:0.75rem 2.5rem; border-bottom:1px solid var(--border); position:sticky; top:env(safe-area-inset-top,0px); background:rgba(250,250,248,0.95); backdrop-filter:blur(8px); z-index:100; }
+.topbar-breadcrumb { font-family:var(--mono); font-size:11px; color:var(--text3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.topbar-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+.topbar-tag { font-family:var(--mono); font-size:10px; padding:3px 8px; background:var(--bg3); border-radius:99px; color:var(--text2); white-space:nowrap; }
+.content { padding:3rem 2.5rem 5rem; max-width:820px; }
+
+.doc-header { margin-bottom:3rem; padding-bottom:3rem; border-bottom:1px solid var(--border); }
+.doc-eyebrow { display:flex; align-items:center; gap:12px; font-family:var(--mono); font-size:10.5px; color:var(--text3); text-transform:uppercase; letter-spacing:0.1em; margin-bottom:1.25rem; }
+.doc-eyebrow::after { content:''; flex:1; height:1px; background:var(--border); }
+.doc-title { font-family:var(--serif); font-size:clamp(26px,4vw,40px); font-weight:400; line-height:1.15; letter-spacing:-0.01em; color:var(--text); margin-bottom:0.75rem; text-wrap:balance; }
+.doc-title em { font-style:italic; color:var(--teal); }
+.doc-byline { font-size:13px; color:var(--text3); display:flex; gap:6px 20px; flex-wrap:wrap; margin-bottom:1.5rem; }
+.disclaimer { font-size:12px; color:var(--text3); line-height:1.6; border-left:2px solid var(--border2); padding-left:12px; margin-bottom:2rem; }
+.disclaimer strong { color:var(--text2); font-weight:500; }
+
+.stat-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; margin:0 0 2.5rem; }
+.stat-cell { padding:1.25rem 1.5rem; border-right:1px solid var(--border); background:var(--card); }
+.stat-cell:last-child { border-right:none; }
+.stat-value { font-family:var(--serif); font-size:34px; line-height:1; margin-bottom:4px; }
+.stat-value.amber{color:var(--amber)} .stat-value.teal{color:var(--teal)} .stat-value.purple{color:var(--purple)} .stat-value.coral{color:var(--coral)}
+.stat-label { font-family:var(--mono); font-size:10px; color:var(--text3); text-transform:uppercase; letter-spacing:0.08em; line-height:1.4; }
+
+.abstract-grid { display:grid; grid-template-columns:110px minmax(0,1fr); gap:2rem; }
+.abstract-label { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); padding-top:4px; }
+.abstract-body { font-size:14.5px; line-height:1.75; color:var(--text2); }
+.abstract-body p + p { margin-top:0.75rem; }
+.abstract-body strong { color:var(--text); font-weight:500; }
+.kw-row { display:flex; flex-wrap:wrap; gap:6px; margin-top:1rem; }
+.kw { font-family:var(--mono); font-size:10px; padding:3px 10px; border:1px solid var(--border2); border-radius:99px; color:var(--text3); }
+
+.section { margin-bottom:4rem; scroll-margin-top:80px; }
+.section-heading { font-family:var(--serif); font-size:26px; font-weight:400; color:var(--text); margin-bottom:1.25rem; display:flex; align-items:baseline; gap:12px; }
+.section-num { font-family:var(--mono); font-size:12px; color:var(--text3); }
+.subsection-heading { font-size:13px; font-weight:500; color:var(--text); margin:2rem 0 0.75rem; text-transform:uppercase; letter-spacing:0.05em; display:flex; align-items:center; gap:8px; scroll-margin-top:80px; }
+.subsection-heading::before { content:''; display:block; width:20px; height:1px; background:var(--border2); }
+.body-text { font-size:14.5px; line-height:1.75; color:var(--text2); margin-bottom:1rem; }
+.body-text strong { color:var(--text); font-weight:500; }
+code { font-family:var(--mono); font-size:12px; background:var(--bg3); padding:1px 5px; border-radius:3px; color:var(--text); word-break:break-word; }
+sup.ref a { font-family:var(--mono); font-size:9.5px; text-decoration:none; padding-left:1px; }
+
+.callout { border-left:2px solid var(--border2); padding:1rem 1.25rem; margin:1.5rem 0; background:var(--bg2); }
+.callout.amber{border-color:var(--amber-border);background:var(--amber-bg)} .callout.teal{border-color:var(--teal-border);background:var(--teal-bg)}
+.callout.blue{border-color:var(--blue-border);background:var(--blue-bg)}
+.callout-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:4px; }
+.callout.amber .callout-label{color:var(--amber)} .callout.teal .callout-label{color:var(--teal)} .callout.blue .callout-label{color:var(--blue)}
+.callout-body { font-size:13.5px; line-height:1.65; color:var(--text2); }
+.callout-body strong { color:var(--text); font-weight:500; }
+.callout.statement .callout-body { font-size:15px; line-height:1.7; color:var(--text); }
+
+.figure { margin:2rem 0; }
+.figure-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.5rem; display:flex; align-items:center; gap:8px; }
+.figure-label::after { content:''; flex:1; height:1px; background:var(--border); }
+.figure-sublabel { font-size:12px; color:var(--text3); font-style:italic; margin-bottom:0.75rem; }
+.figure-body { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1.5rem; overflow-x:auto; }
+.figure-body svg { display:block; width:100%; min-width:620px; height:auto; }
+.figure-note { font-size:12px; color:var(--text3); margin-top:0.5rem; font-style:italic; }
+
+.table-wrap { overflow-x:auto; margin:1.5rem 0; }
+.comp-table { width:100%; border-collapse:collapse; font-size:13px; }
+.comp-table th { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); padding:8px 12px; border-bottom:1px solid var(--border); text-align:left; background:var(--bg2); }
+.comp-table td { padding:10px 12px; border-bottom:1px solid var(--border); color:var(--text2); vertical-align:top; font-variant-numeric:tabular-nums; }
+.comp-table td:first-child { font-weight:500; color:var(--text); }
+.comp-table tr:last-child td { border-bottom:none; }
+.comp-table .highlight td { background:var(--teal-bg); }
+.figure-body .comp-table { margin:0; }
+.badge { font-family:var(--mono); font-size:10px; padding:2px 7px; border-radius:99px; white-space:nowrap; }
+.badge.amber{background:var(--amber-bg);color:var(--amber);border:1px solid var(--amber-border)}
+.badge.teal{background:var(--teal-bg);color:var(--teal);border:1px solid var(--teal-border)}
+.badge.gray{background:var(--bg3);color:var(--text3);border:1px solid var(--border)}
+.badge.red{background:var(--coral-bg);color:var(--coral);border:1px solid var(--coral-border)}
+.badge.purple{background:var(--purple-bg);color:var(--purple);border:1px solid var(--purple-border)}
+.badge.blue{background:var(--blue-bg);color:var(--blue);border:1px solid var(--blue-border)}
+
+.card-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:1.5rem 0; }
+.p-card { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1.25rem; display:flex; flex-direction:column; gap:6px; }
+.p-card.wide { grid-column:1 / -1; }
+.p-card-head { display:flex; justify-content:space-between; align-items:baseline; gap:10px; margin-bottom:2px; }
+.p-card-name { font-family:var(--serif); font-size:17px; color:var(--text); line-height:1.25; }
+.p-card-field { font-size:12.5px; line-height:1.55; color:var(--text2); }
+.p-card-field strong { display:block; font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:0.07em; color:var(--text3); font-weight:500; }
+
+.us-card { border-left:2px solid var(--teal-border); background:var(--teal-bg); border-radius:0 var(--r) var(--r) 0; padding:0.9rem 1.1rem; margin-bottom:0.75rem; }
+.us-card.reader { border-left-color:var(--blue-border); background:var(--blue-bg); }
+.us-id { font-family:var(--mono); font-size:10px; color:var(--teal); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:4px; }
+.us-card.reader .us-id { color:var(--blue); }
+.us-story { font-size:13.5px; color:var(--text); line-height:1.6; margin-bottom:6px; }
+.us-ac { font-size:12px; color:var(--text2); line-height:1.6; }
+
+.tool-group { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin:1.5rem 0 0.5rem; }
+.tool-list { display:flex; flex-direction:column; gap:10px; margin:0.5rem 0 1.5rem; }
+.tool { display:grid; grid-template-columns:40px minmax(0,1fr); gap:14px; border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); padding:1rem 1.25rem; }
+.tool-badge { width:40px; height:40px; border-radius:var(--r); display:grid; place-items:center; background:var(--teal-bg); color:var(--teal); border:1px solid var(--teal-border); }
+.tool-badge.agent { background:var(--purple-bg); color:var(--purple); border-color:var(--purple-border); }
+.tool-badge.check { background:var(--amber-bg); color:var(--amber); border-color:var(--amber-border); }
+.tool-badge svg { width:19px; height:19px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.tool h4 { font-size:13.5px; font-weight:500; color:var(--text); margin-bottom:3px; display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.tool h4 code { font-size:11.5px; }
+.tool p { font-size:13px; line-height:1.6; color:var(--text2); }
+.tool .meta { font-family:var(--mono); font-size:10.5px; color:var(--text3); margin-top:5px; }
+
+/* Simulator */
+.sim-wrap { border:1px solid var(--border); border-radius:var(--r-lg); background:var(--card); overflow:hidden; margin:2rem 0; }
+.sim-header { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0.875rem 1.25rem; background:var(--bg2); border-bottom:1px solid var(--border); }
+.sim-title { font-family:var(--mono); font-size:11px; color:var(--text2); letter-spacing:0.05em; }
+.sim-status { font-family:var(--mono); font-size:10px; color:var(--text3); }
+.sim-status.running{color:var(--amber)} .sim-status.done{color:var(--teal)} .sim-status.review{color:var(--coral)}
+.sim-body { display:grid; grid-template-columns:250px minmax(0,1fr); }
+.sim-controls { border-right:1px solid var(--border); padding:1rem; }
+.sim-controls-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.1em; color:var(--text3); margin-bottom:0.5rem; }
+.scenario-btn { display:block; width:100%; text-align:left; padding:8px 10px; border:none; background:none; cursor:pointer; border-radius:var(--r); font-size:12px; color:var(--text2); margin-bottom:2px; font-family:var(--sans); }
+.scenario-btn:hover { background:var(--bg2); }
+.scenario-btn.active { background:var(--text); color:var(--bg); }
+.scenario-desc { font-size:12px; line-height:1.6; color:var(--text3); padding:0.75rem 0; border-top:1px solid var(--border); margin-top:0.75rem; }
+.scenario-desc strong { color:var(--text2); font-weight:500; }
+.run-btn { width:100%; margin-top:0.75rem; padding:8px; background:var(--text); color:var(--bg); border:none; border-radius:var(--r); font-family:var(--mono); font-size:11px; cursor:pointer; letter-spacing:0.05em; }
+.run-btn:hover { opacity:0.85; } .run-btn:disabled { opacity:0.4; cursor:not-allowed; }
+.sim-stages { padding:1rem; min-width:0; }
+.stage-row { display:grid; grid-template-columns:minmax(0,190px) minmax(0,1fr) 70px; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:12px; }
+.stage-row:last-child { border-bottom:none; }
+.stage-name { display:flex; align-items:center; gap:8px; min-width:0; }
+.stage-dot { width:7px; height:7px; border-radius:50%; background:var(--bg3); flex-shrink:0; transition:background 0.3s; }
+.stage-dot.running { background:var(--amber); animation:pulse 1s infinite; }
+.stage-dot.done { background:var(--teal); } .stage-dot.skip { background:var(--border2); } .stage-dot.review { background:var(--coral); } .stage-dot.model { background:var(--purple); }
+.stage-name-text { font-weight:500; color:var(--text); font-size:12px; font-family:var(--mono); }
+.stage-sub { font-size:10.5px; color:var(--text3); }
+.stage-bar-wrap { background:var(--bg2); border-radius:99px; height:4px; overflow:hidden; }
+.stage-bar { height:4px; border-radius:99px; background:var(--teal); width:0; transition:width 0.6s ease; }
+.stage-bar.review { background:var(--coral); } .stage-bar.skip { background:var(--border2); } .stage-bar.model { background:var(--purple); }
+.stage-timing { font-family:var(--mono); font-size:10px; color:var(--text3); text-align:right; }
+.stage-timing.done { color:var(--teal); }
+.sim-output { margin:0; padding:1rem; background:var(--term); border-top:1px solid var(--border); font-family:var(--mono); font-size:11.5px; line-height:1.7; color:#8a8870; min-height:160px; max-height:280px; overflow-y:auto; white-space:pre-wrap; }
+.sim-output .out-line { display:block; }
+.out-comment{color:#6a6a52} .out-key{color:#a09060} .out-val{color:#78b890} .out-warn{color:#c08840} .out-head{color:#d0c090} .out-fail{color:#e08a70} .out-model{color:#a8a0e8}
+.sim-note { font-family:var(--mono); font-size:10px; color:var(--text3); padding:0.6rem 1.25rem; border-top:1px solid var(--border); background:var(--bg2); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* Report mock */
+.report { border:1px solid var(--border); border-radius:var(--r-lg); overflow:hidden; background:var(--card); }
+.report-head { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; padding:0.75rem 1.25rem; background:var(--bg2); border-bottom:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--text2); }
+.report-sum { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); border-bottom:1px solid var(--border); }
+.report-sum div { padding:0.9rem 1.25rem; border-right:1px solid var(--border); display:flex; flex-direction:column; gap:4px; }
+.report-sum div:last-child { border-right:none; }
+.report-sum b { display:block; font-family:var(--serif); font-weight:400; font-size:26px; line-height:1.1; }
+.report-sum span { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); line-height:1.2; }
+.report-section { padding:0.9rem 1.25rem; border-bottom:1px solid var(--border); }
+.report-section:last-child { border-bottom:none; }
+.report-section h5 { font-family:var(--mono); font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:0.08em; color:var(--text3); margin-bottom:6px; }
+.report-section p, .report-section li { font-size:12.5px; color:var(--text2); line-height:1.6; }
+.report-section ul { list-style:none; display:flex; flex-direction:column; gap:4px; }
+.report-section li code { font-size:11px; }
+
+.sources { list-style:none; counter-reset:src; display:flex; flex-direction:column; gap:6px; }
+.sources li { display:grid; grid-template-columns:30px minmax(0,1fr); font-size:12.5px; color:var(--text2); line-height:1.5; scroll-margin-top:80px; }
+.sources li::before { counter-increment:src; content:"[" counter(src) "]"; font-family:var(--mono); font-size:11px; color:var(--text3); }
+.sources a { word-break:break-word; }
+
+.doc-footer { padding:2rem 2.5rem; border-top:1px solid var(--border); font-family:var(--mono); font-size:11px; color:var(--text3); display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+
+.legend { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:0.75rem; font-family:var(--mono); font-size:10px; color:var(--text3); }
+.legend span { display:inline-flex; align-items:center; gap:6px; }
+.legend i { display:inline-block; width:10px; height:10px; border-radius:2px; border:0.75px solid transparent; }
+.legend i.teal{background:var(--teal-bg);border-color:var(--teal-border)} .legend i.amber{background:var(--amber-bg);border-color:var(--amber-border)}
+.legend i.purple{background:var(--purple-bg);border-color:var(--purple-border)} .legend i.coral{background:var(--coral-bg);border-color:var(--coral-border)}
+.legend i.blue{background:var(--blue-bg);border-color:var(--blue-border)} .legend i.gray{background:var(--bg3);border-color:var(--border2)}
+.legend i.s-teal{background:var(--teal)} .legend i.s-amber{background:var(--amber)} .legend i.s-purple{background:var(--purple)} .legend i.s-coral{background:var(--coral)} .legend i.s-blue{background:var(--blue)} .legend i.s-gray{background:var(--border2)}
+.two-up { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:2rem 0; }
+.two-up .figure { margin:0; }
+.two-up .figure-body svg { min-width:0; }
+
+.code-fig { margin:0; padding:1rem 1.25rem; background:var(--term); border-radius:var(--r); font-family:var(--mono); font-size:11.5px; line-height:1.75; color:#c8c4b0; overflow-x:auto; white-space:pre; }
+.code-fig .t{color:#8fb4e0} .code-fig .a{color:#a09060} .code-fig .v{color:#78b890} .code-fig .c{color:#6a6a52;font-style:italic}
+.code-fig .k{background:rgba(120,184,144,0.16);border-radius:2px;color:#a8e0b8} .code-fig .q{background:rgba(224,138,112,0.18);border-radius:2px;color:#f0b8a0}
+.code-fig .m{color:#a8a0e8}
+.annot { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
+.annot div { font-size:12px; line-height:1.55; color:var(--text2); border-top:2px solid var(--border2); padding-top:6px; }
+.annot div b { display:block; font-family:var(--mono); font-size:10px; font-weight:500; text-transform:uppercase; letter-spacing:0.07em; margin-bottom:2px; }
+.annot .teal { border-color:var(--teal-border); } .annot .teal b { color:var(--teal); }
+.annot .coral { border-color:var(--coral-border); } .annot .coral b { color:var(--coral); }
+.annot .purple { border-color:var(--purple-border); } .annot .purple b { color:var(--purple); }
+.annot .amber { border-color:var(--amber-border); } .annot .amber b { color:var(--amber); }
+
+.rule-box { border:1px solid var(--purple-border); background:var(--purple-bg); border-radius:var(--r-lg); padding:1rem 1.25rem; margin:1.5rem 0; }
+.rule-box .callout-label { color:var(--purple); }
+.rule-box ol { margin:0.25rem 0 0 1.1rem; font-size:13.5px; line-height:1.65; color:var(--text); }
+.rule-box li + li { margin-top:4px; }
+
+@media (max-width:900px) {
+  .page-wrap { grid-template-columns:minmax(0,1fr); }
+  .sidebar { display:none; }
+  .topbar { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .topbar-right { display:none; }
+  .content { padding-block:2rem 4rem; padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .doc-footer { padding-left:max(16px,env(safe-area-inset-left,0px)); padding-right:max(16px,env(safe-area-inset-right,0px)); }
+  .stat-grid { grid-template-columns:minmax(0,1fr); }
+  .stat-cell { border-right:none; border-bottom:1px solid var(--border); }
+  .stat-cell:last-child { border-bottom:none; }
+  .abstract-grid { grid-template-columns:minmax(0,1fr); gap:0.5rem; }
+  .card-grid { grid-template-columns:minmax(0,1fr); }
+  .sim-body { grid-template-columns:minmax(0,1fr); }
+  .sim-controls { border-right:none; border-bottom:1px solid var(--border); }
+  .stage-row { grid-template-columns:minmax(0,1fr) 60px 52px; }
+  .report-sum { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .report-sum div:nth-child(2) { border-right:none; }
+  .report-sum div:nth-child(-n+2) { border-bottom:1px solid var(--border); }
+  .two-up { grid-template-columns:minmax(0,1fr); }
+  .annot { grid-template-columns:minmax(0,1fr); }
+}
+@media (prefers-reduced-motion: reduce) { .stage-dot.running { animation:none; } .stage-bar { transition:none; } }
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<aside class="sidebar">
+  <div class="sidebar-logo">valid / design doc</div>
+  <div class="sidebar-project">VALID</div>
+  <nav aria-label="Sections">
+    <ul class="sidebar-nav">
+      <li><a href="#abstract">Abstract</a></li>
+      <li><a href="#brief">Client Brief</a></li>
+      <li><a href="#problem">Problem</a></li>
+      <li><a href="#users">Users</a></li>
+      <li><a href="#stories">User Stories</a></li>
+      <li><a href="#design">Design</a></li>
+      <li><a href="#simulator">Simulator</a></li>
+      <li><a href="#metrics">Success Metrics</a></li>
+      <li><a href="#sources">Sources</a></li>
+    </ul>
+    <div class="sidebar-divider"></div>
+    <ul class="sidebar-nav">
+      <li><a href="#three-answers" class="sub">2.1 One question, three answers</a></li>
+      <li><a href="#evidence" class="sub">2.2 How often RAG gets it wrong</a></li>
+      <li><a href="#options" class="sub">2.3 Current options</a></li>
+      <li><a href="#how-it-works" class="sub">5.1 How it works</a></li>
+      <li><a href="#scope" class="sub">5.2 Scope from the source</a></li>
+      <li><a href="#filter-first" class="sub">5.3 Filter first, then search</a></li>
+      <li><a href="#tools" class="sub">5.4 Agent tools</a></li>
+      <li><a href="#loop" class="sub">5.5 Agent loop</a></li>
+      <li><a href="#sequence" class="sub">5.6 One question, end to end</a></li>
+      <li><a href="#sample" class="sub">5.7 Sample output</a></li>
+      <li><a href="#lineage" class="sub">5.8 What VALID keeps</a></li>
+      <li><a href="#runtime" class="sub">5.9 Where it runs</a></li>
+    </ul>
+  </nav>
+  <div class="stack-block">
+    <div class="stack-title">Stack</div>
+    <div class="stack-item"><strong>DITA profiling · subject scheme</strong>the scope of every chunk</div>
+    <div class="stack-item"><strong>Gemini 3.8 Flash</strong>structured answer with citations</div>
+    <div class="stack-item"><strong>Gemini Embedding 2</strong>chunk and query vectors</div>
+    <div class="stack-item"><strong>Firestore vector search</strong>equality pre-filter, then kNN</div>
+    <div class="stack-item"><strong>SQLite FTS5 · BM25</strong>exact terms in scope</div>
+    <div class="stack-item"><strong>Agent Development Kit</strong>agent framework</div>
+    <div class="stack-item"><strong>Cloud Run · BigQuery</strong>runtime and question log</div>
+  </div>
+</aside>
+
+<main class="main">
+  <div class="topbar">
+    <div class="topbar-breadcrumb">valid / design-doc · v0.1 · 2026</div>
+    <div class="topbar-right">
+      <span class="topbar-tag">Version-aware RAG</span>
+      <span class="topbar-tag">DITA</span>
+      <span class="topbar-tag">MVP</span>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <header class="doc-header" id="abstract">
+      <div class="doc-eyebrow">VALID v0.1 &nbsp;·&nbsp; version-aware retrieval &nbsp;·&nbsp; 2026</div>
+      <h1 class="doc-title">VALID: <em>Answer from the docs for the generation you run</em><br>and refuse rather than borrow from another</h1>
+      <div class="doc-byline">
+        <span>Design document &nbsp;·&nbsp; Siddharth Rao &nbsp;·&nbsp; October 2026</span>
+        <span>Client: Google data center products and services documentation</span>
+      </div>
+      <p class="disclaimer"><strong>Disclaimer.</strong> This is a portfolio design document. Google has not engaged, sponsored or endorsed this work. The sample content is adapted from the Cloud TPU documentation, which Google publishes under the Creative Commons Attribution 4.0 licence<sup class="ref"><a href="#src-1">1</a></sup>. The adapted versions are modified from the originals. The question set, runs, similarity scores and costs in this document are modelled, not measured. Stakeholders are job roles, not real people. The two readers in §3 are fictional.</p>
+
+      <div class="stat-grid">
+        <div class="stat-cell"><div class="stat-value coral">58%</div><div class="stat-label">standard RAG accuracy on<br>version-sensitive questions</div></div>
+        <div class="stat-cell"><div class="stat-value amber">3</div><div class="stat-label">TPU generations, three<br>right answers to one question</div></div>
+        <div class="stat-cell"><div class="stat-value teal">0</div><div class="stat-label">model calls to decide<br>which content is in scope</div></div>
+      </div>
+
+      <div class="abstract-grid">
+        <div class="abstract-label">Abstract</div>
+        <div class="abstract-body">
+          <p>Ask a documentation assistant how many chips are in one Cloud TPU host or VM and the right answer depends on the generation: 4 for v5p, 8 for v6e, 4 for TPU7x<sup class="ref"><a href="#src-2">2</a></sup><sup class="ref"><a href="#src-3">3</a></sup><sup class="ref"><a href="#src-4">4</a></sup>. Ask which software version to pass when creating a TPU7x VM and the right answer is that the Cloud TPU API doesn't support TPU7x at all<sup class="ref"><a href="#src-5">5</a></sup>. Retrieval ranks text by meaning, not by generation, so it returns all of these side by side. In a published benchmark, standard RAG answered only 58% of version-sensitive questions correctly<sup class="ref"><a href="#src-6">6</a></sup>.</p>
+          <p><strong>VALID</strong> (Version-Aware Lookup In DITA) is an agent that answers only from content profiled for the reader's generation. The scope of every chunk comes from what writers already maintain: profiling attributes, map cascading and a subject scheme<sup class="ref"><a href="#src-8">8</a></sup><sup class="ref"><a href="#src-10">10</a></sup>. Firestore filters on scope before the vector search runs<sup class="ref"><a href="#src-12">12</a></sup>. Gemini writes the answer, and plain Python checks that every citation is in scope and every value appears in its source. If no in-scope content exists, VALID says so and opens a gap issue. It never widens the search to another generation.</p>
+          <p>VALID is rebuilt from VaultRAG, a deployed RAG service with guardrails that refuse when unsure<sup class="ref"><a href="#src-25">25</a></sup>. It keeps that service's retrieval stack and refusal design, and replaces plain-text chunking with DITA-aware chunking that carries scope.</p>
+          <div class="kw-row">
+            <span class="kw">retrieval-augmented generation</span><span class="kw">DITA profiling</span><span class="kw">DITAVAL</span><span class="kw">subject scheme</span><span class="kw">metadata pre-filter</span><span class="kw">Firestore vector search</span><span class="kw">BM25</span><span class="kw">grounding</span><span class="kw">refusal</span><span class="kw">Gemini</span><span class="kw">Agent Development Kit</span><span class="kw">Cloud Run</span>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- §1 CLIENT BRIEF -->
+    <section class="section" id="brief">
+      <h2 class="section-heading"><span class="section-num">§1</span> Client Brief</h2>
+      <p class="body-text">The client is Google's data center products and services documentation. The sample content is the Cloud TPU documentation for three hardware generations: TPU v5p, TPU v6e (Trillium) and TPU7x (Ironwood)<sup class="ref"><a href="#src-2">2</a></sup><sup class="ref"><a href="#src-3">3</a></sup><sup class="ref"><a href="#src-4">4</a></sup>, plus the TPU software versions page that covers all of them<sup class="ref"><a href="#src-5">5</a></sup>. The MANIFEST project converted this content to DITA, with generation-specific content marked by profiling attributes and built per generation with DITAVAL<sup class="ref"><a href="#src-27">27</a></sup>.</p>
+      <p class="body-text">It is a good test for two reasons. First, the generations share most of their concepts and procedures, so retrieval can't tell them apart by meaning alone. Second, the differences are small, exact and easy to get wrong: a chip count, a version string, a supported API. An answer that is almost right is a wrong answer here.</p>
+
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Term</th><th>Meaning in this document</th></tr></thead>
+          <tbody>
+            <tr><td>Generation</td><td>One TPU hardware version: v5p, v6e or TPU7x. VALID's scope dimension. For networking content, the same role is played by a platform or a software release.</td></tr>
+            <tr><td>Profiling attribute</td><td>A DITA attribute that marks content as applying to a condition. <code>@platform</code>, <code>@product</code>, <code>@audience</code> and <code>@otherprops</code> are used for filtering<sup class="ref"><a href="#src-9">9</a></sup>. Here, <code>platform="tpu7x"</code>.</td></tr>
+            <tr><td>DITAVAL</td><td>A file that tells a DITA processor which profiled content to include or exclude for one build<sup class="ref"><a href="#src-8">8</a></sup>.</td></tr>
+            <tr><td>Cascading</td><td>Profiling attributes on a map entry apply to the topics and entries under it<sup class="ref"><a href="#src-10">10</a></sup>. A whole TPU7x branch is scoped once, in the map.</td></tr>
+            <tr><td>Subject scheme</td><td>A DITA map that defines the allowed values of an attribute<sup class="ref"><a href="#src-11">11</a></sup>. It is VALID's list of generations and their other names, such as Ironwood for TPU7x.</td></tr>
+            <tr><td>Chunk</td><td>One retrievable unit: a DITA section, a table, or a group of task steps, with its text, its vector and its scope.</td></tr>
+            <tr><td>Scope</td><td>The set of generations a chunk applies to, resolved from the map and the element. Stored as one true or false field per generation.</td></tr>
+            <tr><td>Pre-filter</td><td>A filter that runs before the nearest-neighbour search, so only in-scope chunks can be returned<sup class="ref"><a href="#src-12">12</a></sup>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="figure" id="fig1">
+        <div class="figure-label">Figure 1</div>
+        <div class="figure-sublabel">System context: as-is state</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 330" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="As-is system context. The DITA source in Git holds profiling attributes. DITA-OT and DITAVAL build one set of pages per generation. A documentation assistant indexes the published pages, where the scope is no longer a field. A reader asks about TPU7x. The assistant retrieves the most similar chunks from all generations and gives an answer that mixes in a v6e value. The reader asks a person instead.">
+            <defs><marker id="a1" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a1c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#b03820" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <text x="110" y="18" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">DOCS REPOSITORY</text>
+              <text x="360" y="18" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">PUBLISHING</text>
+              <text x="610" y="18" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">PUBLISHED</text>
+
+              <rect x="20" y="28" width="180" height="50" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="110" y="49" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">DITA source in Git</text>
+              <text x="110" y="65" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">@platform · keys · subject scheme</text>
+              <rect x="270" y="28" width="180" height="50" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="360" y="49" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">DITA-OT + DITAVAL</text>
+              <text x="360" y="65" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">one build per generation</text>
+              <rect x="520" y="28" width="180" height="50" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="610" y="49" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">HTML pages</text>
+              <text x="610" y="65" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">v5p · v6e · TPU7x · shared</text>
+              <line x1="200" y1="53" x2="266" y2="53" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+              <line x1="450" y1="53" x2="516" y2="53" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+
+              <rect x="520" y="122" width="180" height="56" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="610" y="143" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Assistant index</text>
+              <text x="610" y="159" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">chunks of HTML text</text>
+              <text x="610" y="170" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">no scope field</text>
+              <line x1="610" y1="78" x2="610" y2="118" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+              <rect x="618" y="90" width="92" height="18" rx="4" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="664" y="102" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">scope lost here</text>
+
+              <rect x="270" y="122" width="180" height="56" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="360" y="143" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">RAG assistant</text>
+              <text x="360" y="159" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">top-k by similarity</text>
+              <text x="360" y="170" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">any generation</text>
+              <line x1="520" y1="150" x2="454" y2="150" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+
+              <rect x="20" y="122" width="180" height="56" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="110" y="143" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Reader</text>
+              <text x="110" y="159" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">"Create a TPU7x VM.</text>
+              <text x="110" y="170" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">Which --version?"</text>
+              <line x1="200" y1="150" x2="266" y2="150" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+
+              <rect x="270" y="224" width="180" height="56" rx="6" fill="#ffffff" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3"/>
+              <text x="360" y="245" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Fluent, cited answer</text>
+              <text x="360" y="261" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">--version=v2-alpha-tpuv6e</text>
+              <text x="360" y="272" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">cites the v6e row</text>
+              <line x1="360" y1="178" x2="360" y2="220" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#a1c)"/>
+
+              <rect x="20" y="224" width="180" height="56" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="110" y="245" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Command fails</text>
+              <text x="110" y="261" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">API not supported</text>
+              <text x="110" y="272" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">on TPU7x</text>
+              <line x1="270" y1="252" x2="204" y2="252" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a1)"/>
+
+              <rect x="520" y="224" width="180" height="56" rx="6" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="610" y="245" text-anchor="middle" font-size="11" font-weight="500" fill="#b03820">Ask a person</text>
+              <text x="610" y="261" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">chat thread · support case</text>
+              <text x="610" y="272" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">assistant trusted less</text>
+              <path d="M110 280 C110 316 610 316 610 284" fill="none" stroke="#8a8880" stroke-width="0.75" stroke-dasharray="3 3" marker-end="url(#a1)"/>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">The scope exists in the DITA source as an attribute. Publishing turns it into a separate page, and the index sees only text. The answer in the red box is fluent and cited, and still wrong for the reader's generation (§2.1).</div>
+      </div>
+    </section>
+
+    <!-- §2 PROBLEM -->
+    <section class="section" id="problem">
+      <h2 class="section-heading"><span class="section-num">§2</span> Problem Statement</h2>
+      <p class="body-text">A documentation assistant is only worth its cost if readers trust its answers enough not to ask a person. Hardware generations make that hard. Most of the text is shared, the differences are small, and a retriever can't see which generation a sentence belongs to.</p>
+
+      <h3 class="subsection-heading" id="three-answers">2.1 One question, three right answers</h3>
+      <p class="body-text">Figure 2 shows three questions a reader might ask about a Cloud TPU VM. Each has a different correct answer for each generation, as Google publishes them today.</p>
+
+      <div class="figure" id="fig2">
+        <div class="figure-label">Figure 2</div>
+        <div class="figure-sublabel">Three questions, three generations: answers as published</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 724 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A grid of three questions against v5p, v6e and TPU7x. Chips in one host or VM: 4, 8 and 4. Software version for the VM: v2-alpha-tpuv5, v2-alpha-tpuv6e, and for TPU7x the Cloud TPU API is not supported, so use Compute Engine or GKE. HBM per chip: 95 GiB, 32 GB, and 192 GiB in the table with 192 GB in the prose.">
+            <g font-family="Inter,sans-serif">
+              <text x="265" y="24" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">TPU v5p</text>
+              <text x="450" y="24" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">TPU v6e (Trillium)</text>
+              <text x="635" y="24" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">TPU7x (Ironwood)</text>
+              <g font-family="IBM Plex Mono,monospace" font-size="9" fill="#8a8880">
+                <text x="16" y="62">CHIPS IN ONE</text><text x="16" y="74">HOST OR VM</text>
+                <text x="16" y="128">SOFTWARE VERSION</text><text x="16" y="140">FOR THE VM</text>
+                <text x="16" y="200">HBM PER CHIP</text>
+              </g>
+              <rect x="180" y="40" width="170" height="44" rx="5" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="265" y="68" text-anchor="middle" font-family="DM Serif Display,Georgia,serif" font-size="20" fill="#1850a0">4</text>
+              <rect x="365" y="40" width="170" height="44" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="450" y="68" text-anchor="middle" font-family="DM Serif Display,Georgia,serif" font-size="20" fill="#b07010">8</text>
+              <rect x="550" y="40" width="170" height="44" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="635" y="68" text-anchor="middle" font-family="DM Serif Display,Georgia,serif" font-size="20" fill="#0a6b52">4</text>
+
+              <rect x="180" y="100" width="170" height="56" rx="5" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="265" y="132" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1850a0">v2-alpha-tpuv5</text>
+              <rect x="365" y="100" width="170" height="56" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="450" y="132" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#b07010">v2-alpha-tpuv6e</text>
+              <rect x="550" y="100" width="170" height="56" rx="5" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="635" y="120" text-anchor="middle" font-size="9.5" fill="#b03820">Cloud TPU API</text>
+              <text x="635" y="133" text-anchor="middle" font-size="9.5" fill="#b03820">not supported:</text>
+              <text x="635" y="146" text-anchor="middle" font-size="9.5" fill="#b03820">use Compute Engine or GKE</text>
+
+              <rect x="180" y="172" width="170" height="56" rx="5" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="265" y="204" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1850a0">95 GiB</text>
+              <rect x="365" y="172" width="170" height="56" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="450" y="204" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#b07010">32 GB</text>
+              <rect x="550" y="172" width="170" height="56" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="635" y="196" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#0a6b52">192 GiB in the table</text>
+              <text x="635" y="211" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="10" fill="#0a6b52">192 GB in the prose</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">From the v5p, v6e and TPU7x pages and the TPU software versions page<sup class="ref"><a href="#src-2">2</a></sup><sup class="ref"><a href="#src-3">3</a></sup><sup class="ref"><a href="#src-4">4</a></sup><sup class="ref"><a href="#src-5">5</a></sup>, checked on 20 October 2026. The red cell is not a value at all. It is a different procedure.</div>
+      </div>
+
+      <div class="callout amber">
+        <div class="callout-label">A real example</div>
+        <div class="callout-body">The TPU software versions page lists one version string per generation for JAX and PyTorch: <code>v2-alpha-tpuv5</code> for v5p and <code>v2-alpha-tpuv6e</code> for v6e. On the same page, it says the Cloud TPU API is not supported on TPU7x and later, and points to Compute Engine or GKE instead<sup class="ref"><a href="#src-5">5</a></sup>. A reader who asks "which version do I use for my Ironwood VM?" is closest in meaning to the version table. A retriever returns the table. A model then does what it was asked and picks a version string.</div>
+      </div>
+
+      <p class="body-text">Figure 3 shows why. These are the five chunks nearest in meaning to that question, in an index with no scope. The two that are correct for TPU7x rank fourth and fifth.</p>
+
+      <div class="figure" id="fig3">
+        <div class="figure-label">Figure 3</div>
+        <div class="figure-sublabel">What similarity sees: the five nearest chunks for a TPU7x question (modelled)</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Horizontal bar chart of five chunks by similarity. First, the software versions table row for v6e, 0.83. Second, the row for v5p, 0.81. Third, a shared create-a-TPU-VM step that contains a v6e version string with no scope, 0.80. Fourth, the TPU7x page section on creating capacity, 0.78. Fifth, the software versions note that the Cloud TPU API is not supported on TPU7x, 0.76.">
+            <g font-family="Inter,sans-serif">
+              <g font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880" text-anchor="middle">
+                <text x="300" y="20">0.70</text><text x="420" y="20">0.75</text><text x="540" y="20">0.80</text><text x="660" y="20">0.85</text>
+              </g>
+              <g stroke="#e8e5de" stroke-width="0.75"><line x1="300" y1="26" x2="300" y2="214"/><line x1="420" y1="26" x2="420" y2="214"/><line x1="540" y1="26" x2="540" y2="214"/><line x1="660" y1="26" x2="660" y2="214"/></g>
+
+              <text x="16" y="44" font-size="10.5" fill="#1a1917">1 · runtimes · v6e row</text>
+              <text x="16" y="56" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">v2-alpha-tpuv6e</text>
+              <rect x="300" y="34" width="312" height="20" rx="2" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="618" y="48" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1a1917">0.83 · v6e</text>
+
+              <text x="16" y="82" font-size="10.5" fill="#1a1917">2 · runtimes · v5p row</text>
+              <text x="16" y="94" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">v2-alpha-tpuv5</text>
+              <rect x="300" y="72" width="264" height="20" rx="2" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="570" y="86" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1a1917">0.81 · v5p</text>
+
+              <text x="16" y="120" font-size="10.5" fill="#1a1917">3 · create a TPU VM · step 3</text>
+              <text x="16" y="132" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">shared · no scope · v6e string</text>
+              <rect x="300" y="110" width="240" height="20" rx="2" fill="#fdf0ec" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3"/>
+              <text x="546" y="124" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1a1917">0.80 · unscoped</text>
+
+              <text x="16" y="158" font-size="10.5" fill="#1a1917">4 · TPU7x · get capacity</text>
+              <text x="16" y="170" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">Compute Engine or GKE</text>
+              <rect x="300" y="148" width="192" height="20" rx="2" fill="#0a6b52"/>
+              <text x="498" y="162" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1a1917">0.78 · TPU7x</text>
+
+              <text x="16" y="196" font-size="10.5" fill="#1a1917">5 · runtimes · TPU7x note</text>
+              <text x="16" y="208" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">Cloud TPU API not supported</text>
+              <rect x="300" y="186" width="144" height="20" rx="2" fill="#0a6b52"/>
+              <text x="450" y="200" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1a1917">0.76 · TPU7x</text>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="s-teal"></i>in scope for TPU7x</span><span><i class="amber"></i>v6e</span><span><i class="blue"></i>v5p</span><span><i class="coral"></i>shared text with a generation-specific value</span></div>
+        </div>
+        <div class="figure-note">Illustrative scores, not measured. The pattern is the point: the wrong generations rank first because the question uses the same words as their rows. The third chunk is a shared step that states a v6e value without saying so. A filter on scope can't catch it unless someone marks it. VALID finds it at index time (§5.2).</div>
+      </div>
+
+      <h3 class="subsection-heading" id="evidence">2.2 How often RAG gets it wrong, and what it costs</h3>
+      <p class="body-text">The VersionRAG study measured this failure on versioned technical documentation: Apache Spark and Bootstrap release notes, and Node.js reference pages, 34 documents and 100 curated questions<sup class="ref"><a href="#src-6">6</a></sup>. Standard RAG answered 58% correctly. On questions about what changed between versions, it answered 25% correctly (Figure 4).</p>
+
+      <div class="figure" id="fig4">
+        <div class="figure-label">Figure 4</div>
+        <div class="figure-sublabel">Accuracy on version-sensitive questions, by retrieval approach</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Grouped bar chart from the VersionRAG paper. Overall: naive RAG 58 percent, GraphRAG 64, VersionRAG 90. Content retrieval: 76.6, 70, 93.3. Version listing: 35, 80, 100. Change retrieval: 25, 30, 70.">
+            <g font-family="Inter,sans-serif">
+              <g font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880" text-anchor="end">
+                <text x="70" y="214">0%</text><text x="70" y="174">25%</text><text x="70" y="134">50%</text><text x="70" y="94">75%</text><text x="70" y="54">100%</text>
+              </g>
+              <g stroke="#e8e5de" stroke-width="0.75"><line x1="78" y1="170" x2="704" y2="170"/><line x1="78" y1="130" x2="704" y2="130"/><line x1="78" y1="90" x2="704" y2="90"/><line x1="78" y1="50" x2="704" y2="50"/></g>
+              <line x1="78" y1="210" x2="704" y2="210" stroke="#c8c5be" stroke-width="0.75"/>
+
+              <!-- group 1 overall: x 110 -->
+              <rect x="104" y="117.2" width="34" height="92.8" rx="2" fill="#e8a090"/>
+              <rect x="142" y="107.6" width="34" height="102.4" rx="2" fill="#e8c870"/>
+              <rect x="180" y="66" width="34" height="144" rx="2" fill="#0a6b52"/>
+              <g font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" fill="#1a1917"><text x="121" y="112">58</text><text x="159" y="102">64</text><text x="197" y="60">90</text></g>
+              <!-- group 2 content -->
+              <rect x="258" y="87.4" width="34" height="122.6" rx="2" fill="#e8a090"/>
+              <rect x="296" y="98" width="34" height="112" rx="2" fill="#e8c870"/>
+              <rect x="334" y="60.7" width="34" height="149.3" rx="2" fill="#0a6b52"/>
+              <g font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" fill="#1a1917"><text x="275" y="82">76.6</text><text x="313" y="93">70</text><text x="351" y="55">93.3</text></g>
+              <!-- group 3 listing -->
+              <rect x="412" y="154" width="34" height="56" rx="2" fill="#e8a090"/>
+              <rect x="450" y="82" width="34" height="128" rx="2" fill="#e8c870"/>
+              <rect x="488" y="50" width="34" height="160" rx="2" fill="#0a6b52"/>
+              <g font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" fill="#1a1917"><text x="429" y="149">35</text><text x="467" y="77">80</text><text x="505" y="45">100</text></g>
+              <!-- group 4 change -->
+              <rect x="566" y="170" width="34" height="40" rx="2" fill="#e8a090"/>
+              <rect x="604" y="162" width="34" height="48" rx="2" fill="#e8c870"/>
+              <rect x="642" y="98" width="34" height="112" rx="2" fill="#0a6b52"/>
+              <g font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" fill="#1a1917"><text x="583" y="165">25</text><text x="621" y="157">30</text><text x="659" y="93">70</text></g>
+
+              <g font-size="10.5" fill="#1a1917" text-anchor="middle">
+                <text x="159" y="230">Overall</text><text x="313" y="230">Content retrieval</text><text x="467" y="230">Version listing</text><text x="621" y="230">Change retrieval</text>
+              </g>
+              <g font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880" text-anchor="middle">
+                <text x="159" y="244">all 100 questions</text><text x="313" y="244">"what does X say in v2?"</text><text x="467" y="244">"which versions have X?"</text><text x="621" y="244">"what changed in v2?"</text>
+              </g>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="coral"></i>standard (naive) RAG</span><span><i class="amber"></i>GraphRAG</span><span><i class="s-teal"></i>VersionRAG, version-aware</span></div>
+        </div>
+        <div class="figure-note">Data from Huwiler, Stockinger and Fürst, VersionRAG, Table 5, with DeepSeek-R1 70B as the model<sup class="ref"><a href="#src-6">6</a></sup>. Different content from this design, the same failure. The version-aware approach built its index with about 97% fewer tokens than GraphRAG<sup class="ref"><a href="#src-6">6</a></sup>. VALID goes one step further: in DITA, the version structure already exists, so it needs no model to build it.</div>
+      </div>
+
+      <p class="body-text">The cost of an almost-right answer is not the answer. It is what the reader does next. In the 2025 Stack Overflow Developer Survey, the most common frustration with AI tools was answers that are almost right, but not quite, at 66%. Three in four developers said they still ask a person when they don't trust an AI answer<sup class="ref"><a href="#src-7">7</a></sup>. Each wrong-generation answer turns a self-service answer back into a question for an engineer.</p>
+
+      <div class="figure" id="fig5">
+        <div class="figure-label">Figure 5</div>
+        <div class="figure-sublabel">What developers do with AI answers they don't trust</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 170" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three horizontal bars from the 2025 Stack Overflow Developer Survey. 75.3 percent still ask a person when they don't trust an AI answer. 66 percent are frustrated by answers that are almost right but not quite. 45.7 percent distrust the accuracy of AI tools, against 32.7 percent who trust it.">
+            <g font-family="Inter,sans-serif">
+              <text x="16" y="34" font-size="10.5" fill="#1a1917">Still ask a person when they</text>
+              <text x="16" y="47" font-size="10.5" fill="#1a1917">don't trust the AI answer</text>
+                            <rect x="250" y="24" width="338.9" height="22" rx="2" fill="#b03820"/>
+              <rect x="250" y="24" width="450" height="22" rx="2" fill="none" stroke="#e8e5de" stroke-width="0.75"/>
+              <text x="596" y="39" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">75.3%</text>
+
+              <text x="16" y="84" font-size="10.5" fill="#1a1917">Biggest frustration: answers</text>
+              <text x="16" y="97" font-size="10.5" fill="#1a1917">almost right, but not quite</text>
+              <rect x="250" y="74" width="297" height="22" rx="2" fill="#b07010"/>
+              <rect x="250" y="74" width="450" height="22" rx="2" fill="none" stroke="#e8e5de" stroke-width="0.75"/>
+              <text x="555" y="89" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">66%</text>
+
+              <text x="16" y="134" font-size="10.5" fill="#1a1917">Distrust AI accuracy</text>
+              <text x="16" y="147" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">against 32.7% who trust it</text>
+              <rect x="250" y="124" width="205.7" height="22" rx="2" fill="#e8a090"/>
+              <rect x="250" y="124" width="147.2" height="10" rx="2" fill="#80c8b0" transform="translate(0 30)"/>
+              <rect x="250" y="124" width="450" height="22" rx="2" fill="none" stroke="#e8e5de" stroke-width="0.75"/>
+              <text x="463" y="139" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">45.7%</text>
+              <text x="405" y="163" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">32.7% trust</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">Stack Overflow 2025 Developer Survey, AI section<sup class="ref"><a href="#src-7">7</a></sup>. Between 29,163 and 33,244 respondents per question. The survey is about AI tools in general, not documentation assistants. It shows the reader's fallback when an answer can't be trusted.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="options">2.3 Why the current options fail</h3>
+      <p class="body-text">There are six common ways to make an assistant respect versions. Each one either leaves wrong-generation text in front of the model, or rebuilds structure the DITA source already has.</p>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Option</th><th>What it does</th><th>What it misses</th><th>Result</th></tr></thead>
+          <tbody>
+            <tr><td>Standard RAG on published pages</td><td>Indexes HTML. Returns the top-k chunks by similarity.</td><td>No scope field exists. Wrong generations rank first (Figure 3).</td><td><span class="badge red">58% accurate</span></td></tr>
+            <tr><td>Tell the model the generation</td><td>Adds "the reader uses TPU7x" to the prompt.</td><td>The context still holds v6e and v5p chunks. The model must choose, and can choose wrong.</td><td><span class="badge amber">Unchecked</span></td></tr>
+            <tr><td>Boost or rerank by version</td><td>Raises in-scope chunks in the ranking.</td><td>Wrong-generation chunks drop lower but stay in the context.</td><td><span class="badge amber">Softer, not safe</span></td></tr>
+            <tr><td>Filter after the search</td><td>Runs kNN on everything, then drops out-of-scope results.</td><td>Can leave one result or none. The easy fix is to fall back to unfiltered results.</td><td><span class="badge amber">Fails open</span></td></tr>
+            <tr><td>One index per generation</td><td>Builds a separate index for each build output.</td><td>Copies shared content into every index. Questions that compare generations need several searches. Unscoped values still slip in.</td><td><span class="badge amber">Costly to run</span></td></tr>
+            <tr><td>Model-built version graph (VersionRAG)</td><td>Extracts versions and changes from documents with a model, then routes queries<sup class="ref"><a href="#src-6">6</a></sup>.</td><td>Builds with a model what DITA authors already wrote. Every edge is a model guess.</td><td><span class="badge amber">90%, at a build cost</span></td></tr>
+            <tr class="highlight"><td>VALID: scope from the source, filter first</td><td>Reads scope from profiling, cascading and the subject scheme. Pre-filters on scope. Checks every citation. Refuses when nothing in scope answers.</td><td>Depends on correct profiling. Content that states a value without a scope must be marked, so VALID reports it.</td><td><span class="badge teal">Right or refused</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout statement">
+        <div class="callout-label">Problem statement</div>
+        <div class="callout-body">Readers of the Cloud TPU documentation ask questions whose correct answer depends on the TPU generation. A standard documentation assistant retrieves by meaning, so it returns content from every generation and can answer with a value or procedure from the wrong one. Readers who can't trust the answer ask a person instead, and the assistant saves nothing. The DITA source already records which content applies to which generation, but the assistant never sees it.</div>
+      </div>
+    </section>
+
+    <!-- §3 USERS -->
+    <section class="section" id="users">
+      <h2 class="section-heading"><span class="section-num">§3</span> User Profiles</h2>
+      <p class="body-text">Five roles at Google decide whether VALID is useful. Two readers at Google use its answers.</p>
+      <div class="card-grid">
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Documentation lead, Cloud TPU</span><span class="badge purple">Sponsor</span></div>
+          <div class="p-card-field"><strong>Goal</strong>An assistant that answers TPU questions so engineers don't have to.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Questions answered without a person. Cost per 1,000 questions.</div>
+          <div class="p-card-field"><strong>Today</strong>Can't show that assistant answers are right for the reader's generation.</div>
+          <div class="p-card-field"><strong>Concern</strong>An assistant that is fast, fluent and wrong, under the documentation team's name.</div>
+          <div class="p-card-field"><strong>Success</strong>Zero wrong-generation answers on the test set, with cost logged for every question.</div>
+        </div>
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Technical writer, Cloud TPU</span><span class="badge teal">Main user</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Answers that use the profiling she already maintains.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Gap issues closed. Scope warnings at index time.</div>
+          <div class="p-card-field"><strong>Today</strong>Profiles content for DITAVAL builds. The assistant ignores it.</div>
+          <div class="p-card-field"><strong>Concern</strong>Being blamed for answers built from content she didn't scope.</div>
+          <div class="p-card-field"><strong>Success</strong>Every answer cites topics she wrote, in scope. Every refusal tells her what is missing.</div>
+        </div>
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Information architect</span><span class="badge amber">Structure owner</span></div>
+          <div class="p-card-field"><strong>Goal</strong>One list of generations, used the same way in builds and in answers.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Profiling values not in the subject scheme. Unscoped chunks with generation values.</div>
+          <div class="p-card-field"><strong>Today</strong>Owns the subject scheme. Finds profiling gaps only when a build looks wrong.</div>
+          <div class="p-card-field"><strong>Concern</strong>A second, private list of versions inside an AI tool.</div>
+          <div class="p-card-field"><strong>Success</strong>VALID reads her subject scheme and reports every gap to her as an issue.</div>
+        </div>
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Cloud TPU software engineer</span><span class="badge gray">Contributor</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Fewer chat questions that the docs already answer.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Questions sent to the team channel each week.</div>
+          <div class="p-card-field"><strong>Today</strong>Corrects assistant answers that used a v6e command for TPU7x.</div>
+          <div class="p-card-field"><strong>Concern</strong>A wrong command that a customer runs in production.</div>
+          <div class="p-card-field"><strong>Success</strong>Every command in an answer appears, unchanged, in an in-scope source.</div>
+        </div>
+        <div class="p-card wide">
+          <div class="p-card-head"><span class="p-card-name">Customer support engineer, Cloud TPU</span><span class="badge gray">Downstream</span></div>
+          <div class="p-card-field"><strong>Goal</strong>Paste a cited answer into a case and trust it.</div>
+          <div class="p-card-field"><strong>Measured by</strong>Cases reopened because the documented answer was for another generation.</div>
+          <div class="p-card-field"><strong>Today</strong>Checks every assistant answer against the generation page by hand.</div>
+          <div class="p-card-field"><strong>Concern</strong>Sending a customer a fix for hardware they don't have.</div>
+          <div class="p-card-field"><strong>Success</strong>Each answer states its generation and links only to pages for that generation.</div>
+        </div>
+      </div>
+
+      <h3 class="subsection-heading">Readers</h3>
+      <div class="card-grid">
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Priya Nair</span><span class="badge teal">Reader</span></div>
+          <div class="p-card-field"><strong>Role</strong>ML engineer at Google, moving a training job from v6e to TPU7x.</div>
+          <div class="p-card-field"><strong>Goal</strong>Create TPU7x capacity the first time, without the v6e steps she knows.</div>
+          <div class="p-card-field"><strong>Today</strong>Gets the v6e command from the assistant, runs it, and it fails.</div>
+          <div class="p-card-field"><strong>Success</strong>An answer that says "for TPU7x" and gives the TPU7x procedure.</div>
+        </div>
+        <div class="p-card">
+          <div class="p-card-head"><span class="p-card-name">Tomás Silva</span><span class="badge teal">Reader</span></div>
+          <div class="p-card-field"><strong>Role</strong>Platform engineer at Google who provisions TPU VMs for three teams.</div>
+          <div class="p-card-field"><strong>Goal</strong>Plan host counts for v5p, v6e and TPU7x in one sitting.</div>
+          <div class="p-card-field"><strong>Today</strong>Asks "how many chips per host?" and gets one number with no generation.</div>
+          <div class="p-card-field"><strong>Success</strong>Asked which generation he means, or given one cited answer per generation.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- §4 STORIES -->
+    <section class="section" id="stories">
+      <h2 class="section-heading"><span class="section-num">§4</span> User Stories</h2>
+      <p class="body-text">Each story has acceptance criteria that a tool or check in §5 tests.</p>
+
+      <div class="us-card"><div class="us-id">US-1 · Documentation lead</div><div class="us-story">As the documentation lead, I want every answer's scope, citations and cost logged, so that I can show the assistant is right before I fund it further.</div><div class="us-ac"><strong>Accepted when:</strong> <code>log_question</code> writes one row per question with the resolved scope, cited chunk IDs, check results, tokens and cost; the trap-set report in §7 reads only that table.</div></div>
+      <div class="us-card"><div class="us-id">US-2 · Technical writer</div><div class="us-story">As the Cloud TPU writer, I want answers built only from content I profiled for the reader's generation, so that my profiling decides what readers see.</div><div class="us-ac"><strong>Accepted when:</strong> <code>retrieve_in_scope</code> sends an equality pre-filter on scope with every query; <code>check_answer</code> fails any answer that cites a chunk outside the scope.</div></div>
+      <div class="us-card"><div class="us-id">US-3 · Information architect</div><div class="us-story">As the information architect, I want VALID to take its generations from my subject scheme and report unscoped generation values, so that there is one source of truth for scope.</div><div class="us-ac"><strong>Accepted when:</strong> <code>resolve_profiles</code> fails the index build on any profiling value not in the subject scheme; <code>audit_scope</code> opens one issue per unscoped chunk that contains a generation-specific value.</div></div>
+      <div class="us-card"><div class="us-id">US-4 · Software engineer</div><div class="us-story">As a Cloud TPU software engineer, I want every command and flag in an answer to appear in an in-scope source, so that no reader runs a command from another generation.</div><div class="us-ac"><strong>Accepted when:</strong> <code>check_answer</code> matches every command, flag and version string, character for character, against the cited chunk text.</div></div>
+      <div class="us-card"><div class="us-id">US-5 · Support engineer</div><div class="us-story">As a support engineer, I want each answer to name its generation and link only to pages for it, so that I can send it to a customer without checking it again.</div><div class="us-ac"><strong>Accepted when:</strong> the answer schema requires a <code>scope</code> field; every link resolves to a chunk whose scope includes it.</div></div>
+      <div class="us-card reader"><div class="us-id">US-6 · Priya, reader</div><div class="us-story">As an ML engineer moving to TPU7x, I want the TPU7x procedure when I say "Ironwood", so that I don't run the v6e command I already know.</div><div class="us-ac"><strong>Accepted when:</strong> <code>resolve_scope</code> maps "Ironwood" to <code>tpu7x</code> from the subject scheme; no v6e or v5p chunk reaches the model.</div></div>
+      <div class="us-card reader"><div class="us-id">US-7 · Tomás, reader</div><div class="us-story">As a platform engineer, I want to be asked which generation I mean when my question doesn't say, so that I never get one generation's number presented as the answer.</div><div class="us-ac"><strong>Accepted when:</strong> a question with no scope and a scope-dependent answer returns a choice of generations, not an answer; a question naming two generations gets one cited answer for each.</div></div>
+
+      <div class="figure" id="fig6">
+        <div class="figure-label">Figure 6</div>
+        <div class="figure-sublabel">Stories mapped to the agent tools</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 290" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="A matrix of seven user stories against nine tools. Only the writer's story and the support engineer's story touch generate_answer, the one model tool, and both are also tested by check_answer. Every story is accepted by a deterministic tool or check.">
+            <g font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a5852">
+              <text transform="translate(206 92) rotate(-40)">resolve_profiles</text>
+              <text transform="translate(262 92) rotate(-40)" fill="#b07010">audit_scope</text>
+              <text transform="translate(318 92) rotate(-40)">embed_chunks</text>
+              <text transform="translate(374 92) rotate(-40)">resolve_scope</text>
+              <text transform="translate(430 92) rotate(-40)">retrieve_in_scope</text>
+              <text transform="translate(486 92) rotate(-40)" fill="#4a40b0">generate_answer</text>
+              <text transform="translate(542 92) rotate(-40)" fill="#b07010">check_answer</text>
+              <text transform="translate(598 92) rotate(-40)">refuse_or_ask</text>
+              <text transform="translate(654 92) rotate(-40)">log_question</text>
+            </g>
+            <g font-family="Inter,sans-serif" font-size="10.5" fill="#1a1917">
+              <text x="16" y="118">US-1 Lead · log and cost</text>
+              <text x="16" y="144">US-2 Writer · my profiling</text>
+              <text x="16" y="170">US-3 IA · one scheme</text>
+              <text x="16" y="196">US-4 Engineer · commands</text>
+              <text x="16" y="222">US-5 Support · names scope</text>
+              <text x="16" y="248" fill="#1850a0">US-6 Priya · Ironwood</text>
+              <text x="16" y="274" fill="#1850a0">US-7 Tomás · ask me</text>
+            </g>
+            <g stroke="#e8e5de" stroke-width="0.75">
+              <line x1="16" y1="126" x2="704" y2="126"/><line x1="16" y1="152" x2="704" y2="152"/><line x1="16" y1="178" x2="704" y2="178"/>
+              <line x1="16" y1="204" x2="704" y2="204"/><line x1="16" y1="230" x2="704" y2="230"/><line x1="16" y1="256" x2="704" y2="256"/>
+            </g>
+            <!-- column centres: 210 266 322 378 434 490 546 602 658 -->
+            <g>
+              <circle cx="546" cy="114" r="6" fill="#b07010"/><circle cx="658" cy="114" r="6" fill="#0a6b52"/>
+              <circle cx="210" cy="140" r="6" fill="#0a6b52"/><circle cx="434" cy="140" r="6" fill="#0a6b52"/><circle cx="490" cy="140" r="6" fill="#4a40b0"/><circle cx="546" cy="140" r="6" fill="#b07010"/>
+              <circle cx="210" cy="166" r="6" fill="#0a6b52"/><circle cx="266" cy="166" r="6" fill="#b07010"/>
+              <circle cx="546" cy="192" r="6" fill="#b07010"/>
+              <circle cx="490" cy="218" r="6" fill="#4a40b0"/><circle cx="546" cy="218" r="6" fill="#b07010"/>
+              <circle cx="378" cy="244" r="6" fill="#0a6b52"/><circle cx="434" cy="244" r="6" fill="#0a6b52"/>
+              <circle cx="378" cy="270" r="6" fill="#0a6b52"/><circle cx="602" cy="270" r="6" fill="#0a6b52"/>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="s-teal"></i>deterministic tool</span><span><i class="s-amber"></i>check that decides pass or fail</span><span><i class="s-purple"></i>model call</span></div>
+        </div>
+        <div class="figure-note">Two stories touch the model. Both are accepted by <code>check_answer</code>, not by the model. <code>embed_chunks</code> serves every story and isn't tested by any of them.</div>
+      </div>
+    </section>
+
+    <!-- §5 DESIGN -->
+    <section class="section" id="design">
+      <h2 class="section-heading"><span class="section-num">§5</span> Proposed Design</h2>
+      <p class="body-text">VALID v0.1 is an agent built with Agent Development Kit (ADK), Google's open-source agent framework<sup class="ref"><a href="#src-19">19</a></sup>. It uses Gemini 3.8 Flash (<code>gemini-3.8-flash</code>)<sup class="ref"><a href="#src-15">15</a></sup> with structured output, so the answer must match a JSON Schema<sup class="ref"><a href="#src-18">18</a></sup>, and Gemini Embedding 2 (<code>gemini-embedding-2</code>) for vectors<sup class="ref"><a href="#src-14">14</a></sup>. Plain Python tools, called through function calling<sup class="ref"><a href="#src-20">20</a></sup>, do everything else. They decide the scope, run the filtered search and check the answer. The checks decide pass or fail, and the agent can't override them.</p>
+      <p class="body-text">VALID has two parts. <strong>The index</strong> runs on every docs merge: it reads the DITA source, resolves the scope of each chunk and writes it to Firestore. <strong>The answer</strong> runs on every question: it decides the scope, searches only inside it and checks the result.</p>
+
+      <h3 class="subsection-heading" id="how-it-works">5.1 How it works</h3>
+      <p class="body-text">Figure 7 is the same context as Figure 1, with VALID added. The assistant now reads the DITA source, where the scope still exists, instead of the published pages.</p>
+
+      <div class="figure" id="fig7">
+        <div class="figure-label">Figure 7</div>
+        <div class="figure-sublabel">System context: VALID added</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 400" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="To-be system context. On every merge, a GitHub Actions job runs the index build. It reads the DITA source and the subject scheme, resolves the scope of each chunk, audits unscoped values, embeds chunks and writes them to Firestore and a BM25 index. On every question, the VALID agent on Cloud Run resolves the scope from the subject scheme, searches Firestore with a scope pre-filter and BM25 inside the scope, asks Gemini for a structured answer, and checks it. Failures go back to Gemini up to two times. The result is a cited answer, a question to the reader, or a refusal with a gap issue. Every question is logged in BigQuery.">
+            <defs><marker id="a7" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a7c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#b03820" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a7p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#4a40b0" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <rect x="20" y="16" width="200" height="50" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="120" y="37" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">DITA source in Git</text>
+              <text x="120" y="53" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">maps · topics · @platform</text>
+              <rect x="20" y="78" width="200" height="50" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="120" y="99" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">Subject scheme</text>
+              <text x="120" y="115" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">v5p · v6e · tpu7x · synonyms</text>
+
+              <rect x="260" y="16" width="440" height="112" rx="8" fill="#fafaf8" stroke="#80c8b0" stroke-width="0.9"/>
+              <text x="274" y="33" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">INDEX BUILD · ON EVERY MERGE · GITHUB ACTIONS</text>
+              <g font-family="IBM Plex Mono,monospace" font-size="9.5">
+                <rect x="274" y="44" width="130" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="339" y="60" text-anchor="middle" fill="#0a6b52">resolve_profiles</text>
+                <rect x="418" y="44" width="130" height="24" rx="4" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="483" y="60" text-anchor="middle" fill="#b07010">audit_scope</text>
+                <rect x="562" y="44" width="124" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="624" y="60" text-anchor="middle" fill="#0a6b52">embed_chunks</text>
+              </g>
+              <line x1="404" y1="56" x2="414" y2="56" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="548" y1="56" x2="558" y2="56" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <rect x="274" y="88" width="200" height="30" rx="4" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="374" y="102" text-anchor="middle" font-size="10" font-weight="500" fill="#1850a0">Firestore chunks</text>
+              <text x="374" y="113" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#1850a0">vector · text · in_&lt;gen&gt; fields</text>
+              <rect x="486" y="88" width="200" height="30" rx="4" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="586" y="102" text-anchor="middle" font-size="10" font-weight="500" fill="#1850a0">BM25 index</text>
+              <text x="586" y="113" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#1850a0">SQLite FTS5 · same scope fields</text>
+              <path d="M624 68 L624 80 L374 80 L374 86" fill="none" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="586" y1="80" x2="586" y2="86" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="220" y1="41" x2="270" y2="54" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="220" y1="103" x2="270" y2="62" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <text x="700" y="146" text-anchor="end" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">audit_scope findings → issue for the IA</text>
+
+              <rect x="20" y="160" width="680" height="148" rx="8" fill="#fafaf8" stroke="#b0a8e8" stroke-width="0.9"/>
+              <text x="34" y="177" font-family="IBM Plex Mono,monospace" font-size="9" fill="#4a40b0">VALID AGENT · ADK · CLOUD RUN · ON EVERY QUESTION</text>
+              <g font-family="IBM Plex Mono,monospace" font-size="9.5">
+                <rect x="34" y="190" width="140" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="104" y="206" text-anchor="middle" fill="#0a6b52">resolve_scope</text>
+                <rect x="34" y="224" width="140" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="104" y="240" text-anchor="middle" fill="#0a6b52">retrieve_in_scope</text>
+                <rect x="34" y="266" width="140" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="104" y="282" text-anchor="middle" fill="#0a6b52">refuse_or_ask</text>
+                <rect x="540" y="200" width="146" height="24" rx="4" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="613" y="216" text-anchor="middle" fill="#b07010">check_answer</text>
+                <rect x="540" y="240" width="146" height="24" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="613" y="256" text-anchor="middle" fill="#0a6b52">log_question</text>
+              </g>
+              <rect x="262" y="196" width="196" height="62" rx="6" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.9"/>
+              <text x="360" y="219" text-anchor="middle" font-size="11.5" font-weight="500" fill="#4a40b0">Gemini 3.8 Flash</text>
+              <text x="360" y="235" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#4a40b0">fills the answer schema</text>
+              <text x="360" y="248" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#4a40b0">sees in-scope chunks only</text>
+              <line x1="174" y1="236" x2="258" y2="228" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <text x="216" y="224" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">k=5 in scope</text>
+              <line x1="458" y1="220" x2="536" y2="212" stroke="#4a40b0" stroke-width="0.75" marker-end="url(#a7p)"/>
+              <text x="497" y="206" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#4a40b0">JSON</text>
+              <path d="M540 220 C 510 246, 480 252, 462 246" fill="none" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3" marker-end="url(#a7c)"/>
+              <text x="500" y="268" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">failed steps · max 2</text>
+              <line x1="613" y1="224" x2="613" y2="236" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="104" y1="214" x2="104" y2="220" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="374" y1="118" x2="140" y2="222" stroke="#8a8880" stroke-width="0.75" stroke-dasharray="3 3"/>
+              <text x="250" y="186" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">where in_tpu7x == true</text>
+
+              <rect x="20" y="330" width="200" height="56" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="120" y="351" text-anchor="middle" font-size="11" font-weight="500" fill="#1a1917">Reader</text>
+              <text x="120" y="367" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">ask page · Firebase Hosting</text>
+              <rect x="260" y="330" width="200" height="56" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="360" y="351" text-anchor="middle" font-size="11" font-weight="500" fill="#0a6b52">Answer, question or refusal</text>
+              <text x="360" y="367" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">scope stated · in-scope links</text>
+              <rect x="500" y="330" width="200" height="56" rx="6" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/>
+              <text x="600" y="351" text-anchor="middle" font-size="11" font-weight="500" fill="#1850a0">Question log · gap issues</text>
+              <text x="600" y="367" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#1850a0">BigQuery · GitHub issues</text>
+              <line x1="60" y1="330" x2="60" y2="312" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="360" y1="308" x2="360" y2="326" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+              <line x1="640" y1="264" x2="640" y2="326" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a7)"/>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="blue"></i>existing source or store</span><span><i class="teal"></i>deterministic tool or output</span><span><i class="purple"></i>model</span><span><i class="amber"></i>check that decides</span><span><i class="coral"></i>gap or retry path</span></div>
+        </div>
+        <div class="figure-note">The model sits behind the filter. By the time Gemini sees a chunk, the chunk is already in scope, and by the time a reader sees the answer, every citation has been checked against that scope.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="scope">5.2 Scope comes from the source</h3>
+      <p class="body-text">VALID doesn't ask a model which generation a chunk belongs to. Writers already answered that question when they profiled the content for DITAVAL builds. <code>resolve_profiles</code> reads three things, in this order:</p>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>DITA feature</th><th>What VALID reads</th><th>Index result</th></tr></thead>
+          <tbody>
+            <tr><td>Map cascading</td><td><code>platform="tpu7x"</code> on a <code>&lt;topicref&gt;</code> applies to every topic under it<sup class="ref"><a href="#src-10">10</a></sup></td><td>The whole TPU7x branch is in scope for TPU7x only</td></tr>
+            <tr><td>Element profiling</td><td><code>platform</code> on a step, row or section inside a shared topic</td><td>That chunk's scope narrows to the listed values</td></tr>
+            <tr><td>No attribute</td><td>An omitted attribute can't evaluate to "exclude", so the content is in every build<sup class="ref"><a href="#src-8">8</a></sup></td><td>In scope for every generation, and checked by <code>audit_scope</code></td></tr>
+            <tr><td>Subject scheme</td><td>The allowed <code>@platform</code> values and their other names<sup class="ref"><a href="#src-11">11</a></sup></td><td>One field per value; any other value fails the build</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="body-text">The third row is the risk. DITA treats unprofiled content as shared, which is right for a build and dangerous for an answer. A shared step that says <code>--version=v2-alpha-tpuv6e</code> appears in every build, and in Figure 3 it ranked third for a TPU7x question. <code>audit_scope</code> finds these: it looks for any value that belongs to one generation (a version string, a machine type, a key value) inside a chunk that is in scope for all of them. Each finding becomes an issue for the information architect. The writer fixes the profiling, and the next build reads the fix.</p>
+
+      <div class="figure" id="fig8">
+        <div class="figure-label">Figure 8</div>
+        <div class="figure-sublabel">From map and topic to scope fields on each chunk</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Three columns. On the left, the map: a TPU7x branch with platform tpu7x, a v6e branch with platform v6e, and a shared branch with no platform. In the middle, a shared topic, create a TPU VM, with a step profiled v6e, a step profiled tpu7x and a step with no profiling that contains a v6e version string. On the right, the index rows: the TPU7x topic chunk has in_tpu7x true only; the v6e step has in_v6e true only; the tpu7x step has in_tpu7x true only; the unprofiled step is true for all three and is flagged by audit_scope.">
+            <defs><marker id="a8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="IBM Plex Mono,monospace">
+              <text x="105" y="18" text-anchor="middle" font-size="9" fill="#8a8880">DITA MAP</text>
+              <text x="345" y="18" text-anchor="middle" font-size="9" fill="#8a8880">SHARED TOPIC · create-tpu-vm</text>
+              <text x="600" y="18" text-anchor="middle" font-size="9" fill="#8a8880">CHUNK · v5p · v6e · tpu7x</text>
+
+              <g font-size="9.5">
+                <rect x="20" y="30" width="170" height="38" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+                <text x="32" y="46" fill="#0a6b52">&lt;topicref</text><text x="32" y="60" fill="#0a6b52">  platform="tpu7x"&gt;</text>
+                <rect x="20" y="78" width="170" height="38" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+                <text x="32" y="94" fill="#b07010">&lt;topicref</text><text x="32" y="108" fill="#b07010">  platform="v6e"&gt;</text>
+                <rect x="20" y="126" width="170" height="38" rx="5" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+                <text x="32" y="142" fill="#5a5852">&lt;topicref</text><text x="32" y="156" fill="#5a5852">  href="create-tpu-vm"&gt;</text>
+                <text x="32" y="186" font-size="8.5" fill="#8a8880">no @platform: shared</text>
+              </g>
+
+              <g font-size="9.5">
+                <rect x="240" y="96" width="210" height="34" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+                <text x="252" y="111" fill="#b07010">&lt;step platform="v6e"&gt;</text><text x="252" y="124" font-size="8.5" fill="#b07010">--version=v2-alpha-tpuv6e</text>
+                <rect x="240" y="140" width="210" height="34" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+                <text x="252" y="155" fill="#0a6b52">&lt;step platform="tpu7x"&gt;</text><text x="252" y="168" font-size="8.5" fill="#0a6b52">Use Compute Engine or GKE</text>
+                <rect x="240" y="184" width="210" height="34" rx="5" fill="#fdf0ec" stroke="#b03820" stroke-width="0.9" stroke-dasharray="4 3"/>
+                <text x="252" y="199" fill="#b03820">&lt;step&gt;  no @platform</text><text x="252" y="212" font-size="8.5" fill="#b03820">...--version=v2-alpha-tpuv6e</text>
+              </g>
+              <line x1="190" y1="145" x2="236" y2="157" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a8)"/>
+
+              <g font-size="9.5">
+                <rect x="500" y="30" width="200" height="38" rx="5" fill="#ffffff" stroke="#d8d5ce" stroke-width="0.75"/>
+                <text x="512" y="46" fill="#1a1917">tpu7x/get-capacity#s1</text>
+                <text x="512" y="60" font-size="9" fill="#8a8880">false · false · <tspan fill="#0a6b52">true</tspan></text>
+                <rect x="500" y="96" width="200" height="38" rx="5" fill="#ffffff" stroke="#d8d5ce" stroke-width="0.75"/>
+                <text x="512" y="112" fill="#1a1917">create-tpu-vm#step-2a</text>
+                <text x="512" y="126" font-size="9" fill="#8a8880">false · <tspan fill="#b07010">true</tspan> · false</text>
+                <rect x="500" y="140" width="200" height="38" rx="5" fill="#ffffff" stroke="#d8d5ce" stroke-width="0.75"/>
+                <text x="512" y="156" fill="#1a1917">create-tpu-vm#step-2b</text>
+                <text x="512" y="170" font-size="9" fill="#8a8880">false · false · <tspan fill="#0a6b52">true</tspan></text>
+                <rect x="500" y="184" width="200" height="54" rx="5" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+                <text x="512" y="200" fill="#1a1917">create-tpu-vm#step-3</text>
+                <text x="512" y="214" font-size="9" fill="#8a8880">true · true · true</text>
+                <text x="512" y="229" font-size="8.5" fill="#b03820">audit_scope: v6e value, no scope</text>
+              </g>
+              <line x1="190" y1="49" x2="496" y2="49" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a8)"/>
+              <line x1="450" y1="113" x2="496" y2="115" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a8)"/>
+              <line x1="450" y1="157" x2="496" y2="159" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a8)"/>
+              <line x1="450" y1="201" x2="496" y2="205" stroke="#b03820" stroke-width="0.75" marker-end="url(#a8)"/>
+
+              <rect x="240" y="246" width="460" height="40" rx="6" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="252" y="263" font-size="9" fill="#b07010">ISSUE #87 to the information architect · create-tpu-vm.dita, line 41</text>
+              <text x="252" y="277" font-size="9" fill="#5a5852">"v2-alpha-tpuv6e" is a v6e value. Add platform="v6e" or move the step.</text>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="teal"></i>TPU7x</span><span><i class="amber"></i>v6e</span><span><i class="gray"></i>shared, no attribute</span><span><i class="coral"></i>shared text with a one-generation value</span></div>
+        </div>
+        <div class="figure-note">Each chunk stores one true or false field per generation in the subject scheme. Cascading decides most of them. The last row is in scope for everything, so the filter alone can't stop it. The audit catches it before any reader can.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="filter-first">5.3 Filter first, then search</h3>
+      <p class="body-text">Firestore vector search can combine a nearest-neighbour query with other filters, so the filter runs before the search. The filtered query needs a composite vector index<sup class="ref"><a href="#src-12">12</a></sup>. VALID uses only equality filters on the scope fields, the pattern the Firestore documentation shows (<code>where("in_tpu7x", "==", True)</code>), with one composite index per generation. It doesn't depend on range or array filters inside a vector query, which the documentation doesn't describe.</p>
+
+      <div class="figure" id="fig9">
+        <div class="figure-label">Figure 9</div>
+        <div class="figure-sublabel">Filter after the search compared with filter before it, for a TPU7x question</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 270" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Two panels. Left, filter after: kNN over all chunks returns five, three are out of scope and are dropped, two remain, and if none remain the system is tempted to fall back to unfiltered results. Right, filter first: the where clause keeps only TPU7x chunks, kNN returns five, all five are in scope, and if none exist VALID refuses.">
+            <defs><marker id="a9" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <rect x="10" y="10" width="340" height="250" rx="8" fill="#fafaf8" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="24" y="30" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b03820">FILTER AFTER · FAILS OPEN</text>
+              <rect x="24" y="42" width="312" height="28" rx="4" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="180" y="60" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="#5a5852">kNN over all chunks · limit 5</text>
+              <line x1="180" y1="70" x2="180" y2="84" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a9)"/>
+              <g>
+                <rect x="40" y="88" width="50" height="30" rx="4" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="65" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b07010">v6e</text>
+                <rect x="96" y="88" width="50" height="30" rx="4" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/><text x="121" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#1850a0">v5p</text>
+                <rect x="152" y="88" width="50" height="30" rx="4" fill="#fdf0ec" stroke="#b03820" stroke-width="0.75" stroke-dasharray="3 3"/><text x="177" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b03820">shared</text>
+                <rect x="208" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="233" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+                <rect x="264" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="289" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+              </g>
+              <line x1="180" y1="118" x2="180" y2="132" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a9)"/>
+              <text x="180" y="146" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a5852">drop out of scope → 2 left, from 5 asked</text>
+              <rect x="40" y="160" width="280" height="40" rx="5" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="180" y="177" text-anchor="middle" font-size="10" fill="#b03820">Fewer results than asked. On a new</text>
+              <text x="180" y="191" text-anchor="middle" font-size="10" fill="#b03820">generation, often none at all.</text>
+              <text x="180" y="226" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b03820">easy fix: "fall back to unfiltered"</text>
+              <text x="180" y="242" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#b03820">= the wrong answer comes back</text>
+
+              <rect x="370" y="10" width="340" height="250" rx="8" fill="#fafaf8" stroke="#80c8b0" stroke-width="0.9"/>
+              <text x="384" y="30" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">FILTER FIRST · FAILS CLOSED · VALID</text>
+              <rect x="384" y="42" width="312" height="28" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="540" y="60" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9.5" fill="#0a6b52">where in_tpu7x == true · then kNN · limit 5</text>
+              <line x1="540" y1="70" x2="540" y2="84" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a9)"/>
+              <g>
+                <rect x="400" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="425" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+                <rect x="456" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="481" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+                <rect x="512" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="537" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+                <rect x="568" y="88" width="50" height="30" rx="4" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/><text x="593" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a5852">shared</text>
+                <rect x="624" y="88" width="50" height="30" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="649" y="107" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">tpu7x</text>
+              </g>
+              <line x1="540" y1="118" x2="540" y2="132" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a9)"/>
+              <text x="540" y="146" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#5a5852">5 of 5 in scope · audited shared text only</text>
+              <rect x="400" y="160" width="280" height="40" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="540" y="177" text-anchor="middle" font-size="10" fill="#0a6b52">The model never sees another</text>
+              <text x="540" y="191" text-anchor="middle" font-size="10" fill="#0a6b52">generation's text.</text>
+              <text x="540" y="226" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">nothing in scope → refuse + gap issue</text>
+              <text x="540" y="242" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="9" fill="#0a6b52">never retried without the filter</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">The left design is what most RAG stacks do when metadata is added late. The right design is the one rule VALID can't break: the scope filter is part of every query, and no code path removes it.</div>
+      </div>
+
+      <p class="body-text">Exact terms matter in this content. Version strings, machine types such as <code>tpu7x-standard-4t</code>, and flags are rare tokens that dense vectors handle poorly. VALID also runs a BM25 search with SQLite FTS5<sup class="ref"><a href="#src-24">24</a></sup> over the same scope, and merges the two lists with reciprocal rank fusion<sup class="ref"><a href="#src-30">30</a></sup>. This is the hybrid retrieval pattern from QueryForge<sup class="ref"><a href="#src-26">26</a></sup>, with the scope filter applied to both lists.</p>
+
+      <h3 class="subsection-heading" id="tools">5.4 Agent tools</h3>
+      <p class="body-text">VALID has nine tools. Three run at index time and six at question time. One calls the model.</p>
+
+      <div class="tool-group">Index time · on every docs merge</div>
+      <div class="tool-list">
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="7" height="6" rx="1"/><rect x="14" y="4" width="7" height="6" rx="1"/><rect x="8.5" y="14" width="7" height="6" rx="1"/><path d="M6.5 10v2h11v-2"/><path d="M12 12v2"/></svg></div><div>
+          <h4>1. Resolve profiles <code>resolve_profiles</code></h4>
+          <p>Parses the maps and topics with lxml. Applies map cascading, then element profiling, to give each chunk its scope. Chunks follow DITA structure: one section, one table or one group of steps. Fails the build on any value not in the subject scheme.</p>
+          <div class="meta">output: chunks with text, source path, line and one scope field per generation</div></div></div>
+        <div class="tool"><div class="tool-badge check"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/><path d="M8.5 11h5"/></svg></div><div>
+          <h4>2. Audit the scope <code>audit_scope</code> <span class="badge amber">check</span></h4>
+          <p>Finds shared chunks that contain a value owned by one generation: a version string, a machine type, or the resolved value of a generation key. Opens one issue per finding for the information architect.</p>
+          <div class="meta">output: scope findings with file and line; issues in GitHub</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v6c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6"/></svg></div><div>
+          <h4>3. Embed and store <code>embed_chunks</code></h4>
+          <p>Embeds changed chunks with Gemini Embedding 2 at 1,536 dimensions, a recommended size under Firestore's 2,048 limit<sup class="ref"><a href="#src-12">12</a></sup><sup class="ref"><a href="#src-14">14</a></sup>. Writes vectors and scope fields to Firestore, and text and scope to the BM25 index.</p>
+          <div class="meta">output: Firestore documents and FTS5 rows; only changed chunks are re-embedded</div></div></div>
+      </div>
+
+      <div class="tool-group">Question time · on every question</div>
+      <div class="tool-list">
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><path d="M4 7h16"/><path d="M4 12h10"/><path d="M4 17h7"/><path d="M17 15l2 2 3-4"/></svg></div><div>
+          <h4>4. Decide the scope <code>resolve_scope</code></h4>
+          <p>Matches the question against the subject scheme: generation names, other names such as Trillium and Ironwood, accelerator types and machine types. No model call. Returns one generation, several, or none.</p>
+          <div class="meta">output: scope list and the words that matched</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><path d="M3 5h18l-7 8v6l-4-2v-4z"/></svg></div><div>
+          <h4>5. Search inside the scope <code>retrieve_in_scope</code></h4>
+          <p>Embeds the question, runs Firestore <code>find_nearest</code> with the scope pre-filter, runs BM25 with the same scope, and fuses the lists. For two generations, it runs once per generation and labels each list.</p>
+          <div class="meta">output: up to 5 chunks per generation, every one in scope, with scores</div></div></div>
+        <div class="tool"><div class="tool-badge agent"><svg viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></div><div>
+          <h4>6. Write the answer <code>generate_answer</code> <span class="badge purple">model</span></h4>
+          <p>Calls Gemini 3.8 Flash with structured output. The schema requires a <code>scope</code> field and a citation on every step, and the citation must come from an enum of the retrieved chunk IDs, so Gemini can't cite anything it wasn't given. AlignR uses the same enum method for keys and sources<sup class="ref"><a href="#src-29">29</a></sup>.</p>
+          <div class="meta">output: JSON answer with steps, citations and scope</div></div></div>
+        <div class="tool"><div class="tool-badge check"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 12l3 3 5-6"/></svg></div><div>
+          <h4>7. Check the answer <code>check_answer</code> <span class="badge amber">check</span></h4>
+          <p>Three plain Python checks. Every citation is in scope. Every number, unit, flag, command and version string appears in its cited chunk. No value owned by an out-of-scope generation appears anywhere in the answer. The grounding check comes from KnowledgeFlow<sup class="ref"><a href="#src-28">28</a></sup>.</p>
+          <div class="meta">output: pass, or the failed steps with reasons</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5v.7"/><path d="M12 17h.01"/></svg></div><div>
+          <h4>8. Refuse or ask <code>refuse_or_ask</code></h4>
+          <p>No scope and a scope-dependent question: asks the reader to choose a generation. Scope but nothing in scope, or checks still failing: refuses, says what is missing, and opens a gap issue for the writer.</p>
+          <div class="meta">output: a choice for the reader, or a refusal and a gap issue</div></div></div>
+        <div class="tool"><div class="tool-badge"><svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M8 15l3-4 3 2 4-6"/></svg></div><div>
+          <h4>9. Log the question <code>log_question</code></h4>
+          <p>Writes one row per question to BigQuery: question, scope, chunk IDs and scopes, check results, outcome, tokens and cost.</p>
+          <div class="meta">output: rows in the question log</div></div></div>
+      </div>
+
+      <h3 class="subsection-heading" id="loop">5.5 Agent loop</h3>
+      <p class="body-text">The model decides how to phrase the answer. The checks decide whether it can be sent. A failed step goes back to Gemini with its reason, up to two times, with the same in-scope chunks. VALID never widens the search to fix a failure.</p>
+
+      <div class="figure" id="fig10">
+        <div class="figure-label">Figure 10</div>
+        <div class="figure-sublabel">Agent loop for one question</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Loop. Resolve the scope. If none and the answer depends on it, ask the reader. Otherwise search inside the scope. If nothing in scope is found, refuse and open a gap issue. Otherwise Gemini fills the answer schema, and the checks run. If they pass, send the answer. If not, Gemini revises the failed steps up to two times with the same chunks. If still failing, refuse the failed part and open a gap issue.">
+            <defs><marker id="a10" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a10c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#b03820" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <rect x="10" y="40" width="104" height="54" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="62" y="62" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">Resolve</text>
+              <text x="62" y="77" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">the scope</text>
+              <polygon points="186,22 236,67 186,112 136,67" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="186" y="63" text-anchor="middle" font-size="9.5" font-weight="500" fill="#b07010">Scope</text>
+              <text x="186" y="77" text-anchor="middle" font-size="9.5" font-weight="500" fill="#b07010">found?</text>
+              <rect x="258" y="40" width="110" height="54" rx="6" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+              <text x="313" y="62" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">Search</text>
+              <text x="313" y="77" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">inside it</text>
+              <rect x="390" y="40" width="110" height="54" rx="6" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.75"/>
+              <text x="445" y="62" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a40b0">Gemini fills</text>
+              <text x="445" y="77" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a40b0">the answer</text>
+              <polygon points="572,22 622,67 572,112 522,67" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/>
+              <text x="572" y="63" text-anchor="middle" font-size="9.5" font-weight="500" fill="#b07010">Checks</text>
+              <text x="572" y="77" text-anchor="middle" font-size="9.5" font-weight="500" fill="#b07010">pass?</text>
+              <rect x="640" y="40" width="70" height="54" rx="6" fill="#e8f5f0" stroke="#0a6b52" stroke-width="1"/>
+              <text x="675" y="62" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">Send</text>
+              <text x="675" y="77" text-anchor="middle" font-size="10.5" font-weight="500" fill="#0a6b52">answer</text>
+
+              <line x1="114" y1="67" x2="132" y2="67" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a10)"/>
+              <line x1="236" y1="67" x2="254" y2="67" stroke="#0a6b52" stroke-width="0.9" marker-end="url(#a10)"/>
+              <text x="245" y="58" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#0a6b52">yes</text>
+              <line x1="368" y1="67" x2="386" y2="67" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a10)"/>
+              <line x1="500" y1="67" x2="518" y2="67" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a10)"/>
+              <line x1="622" y1="67" x2="636" y2="67" stroke="#0a6b52" stroke-width="0.9" marker-end="url(#a10)"/>
+              <text x="629" y="58" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8" fill="#0a6b52">yes</text>
+
+              <line x1="186" y1="112" x2="186" y2="146" stroke="#b03820" stroke-width="0.9" marker-end="url(#a10c)"/>
+              <text x="194" y="134" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">no</text>
+              <rect x="126" y="150" width="120" height="46" rx="6" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/>
+              <text x="186" y="170" text-anchor="middle" font-size="10.5" font-weight="500" fill="#1a1917">Ask the reader</text>
+              <text x="186" y="185" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">v5p · v6e · TPU7x</text>
+              <path d="M126 173 L62 173 L62 98" fill="none" stroke="#8a8880" stroke-width="0.75" stroke-dasharray="3 3" marker-end="url(#a10)"/>
+              <text x="68" y="140" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">reader picks</text>
+
+              <line x1="313" y1="94" x2="313" y2="228" stroke="#b03820" stroke-width="0.9" marker-end="url(#a10c)"/>
+              <text x="321" y="126" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">0 in scope</text>
+
+              <line x1="572" y1="112" x2="572" y2="146" stroke="#b03820" stroke-width="0.9" marker-end="url(#a10c)"/>
+              <text x="580" y="134" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">no</text>
+              <rect x="500" y="150" width="144" height="46" rx="6" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.75"/>
+              <text x="572" y="170" text-anchor="middle" font-size="10.5" font-weight="500" fill="#4a40b0">Gemini revises</text>
+              <text x="572" y="185" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#4a40b0">failed steps · same chunks</text>
+              <path d="M500 173 L445 173 L445 98" fill="none" stroke="#4a40b0" stroke-width="0.75" stroke-dasharray="4 3" marker-end="url(#a10)"/>
+              <text x="451" y="140" font-family="IBM Plex Mono,monospace" font-size="8" fill="#4a40b0">up to 2 times</text>
+              <line x1="572" y1="196" x2="572" y2="228" stroke="#b03820" stroke-width="0.9" marker-end="url(#a10c)"/>
+              <text x="580" y="216" font-family="IBM Plex Mono,monospace" font-size="8" fill="#b03820">still failing</text>
+
+              <rect x="258" y="232" width="386" height="50" rx="6" fill="#fdf0ec" stroke="#e8a090" stroke-width="0.75"/>
+              <text x="451" y="252" text-anchor="middle" font-size="11" font-weight="500" fill="#b03820">Refuse, say what is missing, open a gap issue</text>
+              <text x="451" y="268" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#b03820">refuse_or_ask · never search again without the filter</text>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">Three ways out, and only one is an answer. A question to the reader and a refusal are designed outcomes, as in VaultRAG<sup class="ref"><a href="#src-25">25</a></sup>. Each refusal names the missing content, so it becomes work for a writer instead of a dead end.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="sequence">5.6 One question, end to end</h3>
+      <p class="body-text">Figure 11 follows Priya's question from §3. It is the run in the second simulator scenario (§6).</p>
+
+      <div class="figure" id="fig11">
+        <div class="figure-label">Figure 11</div>
+        <div class="figure-sublabel">Sequence: "I'm on Ironwood. Which --version do I pass when I create the VM?"</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sequence diagram with six lanes: reader, VALID agent, Firestore and BM25, Gemini, checks and BigQuery. The reader asks. The agent maps Ironwood to tpu7x from the subject scheme. It searches with the tpu7x filter and gets five chunks, all in scope. Gemini returns an answer that includes a version flag. The check finds the flag in no cited chunk. Gemini revises that step. The checks pass. The agent sends the answer with the TPU7x scope and logs the question.">
+            <defs><marker id="a11" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#8a8880" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a11p" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#4a40b0" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a11c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#b03820" stroke-width="1.5" stroke-linecap="round"/></marker>
+            <marker id="a11t" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M2 1L8 5L2 9" fill="none" stroke="#0a6b52" stroke-width="1.5" stroke-linecap="round"/></marker></defs>
+            <g font-family="Inter,sans-serif">
+              <g font-size="10.5" font-weight="500" text-anchor="middle">
+                <rect x="20" y="12" width="96" height="30" rx="5" fill="#ffffff" stroke="#c8c5be" stroke-width="0.75"/><text x="68" y="31" fill="#1a1917">Reader</text>
+                <rect x="140" y="12" width="110" height="30" rx="5" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="195" y="31" fill="#0a6b52">VALID agent</text>
+                <rect x="272" y="12" width="110" height="30" rx="5" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/><text x="327" y="31" fill="#1850a0">Firestore · BM25</text>
+                <rect x="404" y="12" width="96" height="30" rx="5" fill="#f0effe" stroke="#b0a8e8" stroke-width="0.75"/><text x="452" y="31" fill="#4a40b0">Gemini</text>
+                <rect x="524" y="12" width="96" height="30" rx="5" fill="#fdf4e3" stroke="#e8c870" stroke-width="0.75"/><text x="572" y="31" fill="#b07010">Checks</text>
+                <rect x="632" y="12" width="80" height="30" rx="5" fill="#eaf2fe" stroke="#90b8e8" stroke-width="0.75"/><text x="672" y="31" fill="#1850a0">BigQuery</text>
+              </g>
+              <g stroke="#d8d5ce" stroke-width="0.75" stroke-dasharray="3 3">
+                <line x1="68" y1="42" x2="68" y2="430"/><line x1="195" y1="42" x2="195" y2="430"/><line x1="327" y1="42" x2="327" y2="430"/>
+                <line x1="452" y1="42" x2="452" y2="430"/><line x1="572" y1="42" x2="572" y2="430"/><line x1="672" y1="42" x2="672" y2="430"/>
+              </g>
+              <g font-family="IBM Plex Mono,monospace" font-size="8.5">
+                <line x1="68" y1="70" x2="191" y2="70" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="131" y="65" text-anchor="middle" fill="#5a5852">1 question</text>
+                <rect x="199" y="82" width="200" height="20" rx="3" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/><text x="299" y="96" text-anchor="middle" fill="#0a6b52">2 "Ironwood" → scope tpu7x (scheme)</text>
+                <line x1="195" y1="124" x2="323" y2="124" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="261" y="119" text-anchor="middle" fill="#5a5852">3 in_tpu7x == true · kNN + BM25</text>
+                <line x1="327" y1="150" x2="199" y2="150" stroke="#0a6b52" stroke-width="0.75" marker-end="url(#a11t)"/><text x="261" y="145" text-anchor="middle" fill="#0a6b52">4 five chunks · all tpu7x</text>
+                <line x1="195" y1="176" x2="448" y2="176" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="321" y="171" text-anchor="middle" fill="#5a5852">5 chunks + answer schema</text>
+                <line x1="452" y1="202" x2="199" y2="202" stroke="#4a40b0" stroke-width="0.75" marker-end="url(#a11p)"/><text x="321" y="197" text-anchor="middle" fill="#4a40b0">6 JSON · step 2 has --version=...</text>
+                <line x1="195" y1="228" x2="568" y2="228" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="470" y="223" text-anchor="middle" fill="#5a5852">7 check</text>
+                <line x1="572" y1="254" x2="199" y2="254" stroke="#b03820" stroke-width="0.75" marker-end="url(#a11c)"/><text x="470" y="249" text-anchor="middle" fill="#b03820">8 FAIL step 2: flag in no cited chunk</text>
+                <line x1="195" y1="280" x2="448" y2="280" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="321" y="275" text-anchor="middle" fill="#5a5852">9 revise step 2 · same chunks</text>
+                <line x1="452" y1="306" x2="199" y2="306" stroke="#4a40b0" stroke-width="0.75" marker-end="url(#a11p)"/><text x="321" y="301" text-anchor="middle" fill="#4a40b0">10 JSON · "API not supported"</text>
+                <line x1="195" y1="332" x2="568" y2="332" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="470" y="327" text-anchor="middle" fill="#5a5852">11 re-check</text>
+                <line x1="572" y1="358" x2="199" y2="358" stroke="#0a6b52" stroke-width="0.75" marker-end="url(#a11t)"/><text x="470" y="353" text-anchor="middle" fill="#0a6b52">12 all pass · 3 of 3 cited in scope</text>
+                <line x1="195" y1="384" x2="72" y2="384" stroke="#0a6b52" stroke-width="0.75" marker-end="url(#a11t)"/><text x="131" y="379" text-anchor="middle" fill="#0a6b52">13 answer · TPU7x</text>
+                <line x1="195" y1="410" x2="668" y2="410" stroke="#8a8880" stroke-width="0.75" marker-end="url(#a11)"/><text x="470" y="405" text-anchor="middle" fill="#5a5852">14 log: scope · chunks · checks · cost</text>
+              </g>
+            </g>
+          </svg>
+        </div>
+        <div class="figure-note">The model's first draft carried a <code>--version</code> flag from its own training, not from the context. The filter can't stop that. The grounding check can. Two model calls, zero chunks from another generation.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="sample">5.7 Sample output</h3>
+      <p class="body-text">This is the answer VALID sends for Priya's question, as JSON from the answer schema. The ask page renders it with the scope at the top.</p>
+
+      <div class="figure" id="fig12">
+        <div class="figure-label">Figure 12</div>
+        <div class="figure-sublabel">Answer object after the checks pass</div>
+        <div class="figure-body">
+<pre class="code-fig">{
+  <span class="a">"scope"</span>: [<span class="k">"tpu7x"</span>],  <span class="a">"matched"</span>: <span class="v">"Ironwood"</span>,  <span class="c">// from the subject scheme, not the model</span>
+  <span class="a">"answer"</span>: <span class="v">"The Cloud TPU API doesn't support TPU7x, so the software versions page lists no version for it."</span>,
+  <span class="a">"steps"</span>: [
+    { <span class="a">"text"</span>: <span class="v">"Create TPU7x capacity with Compute Engine or Google Kubernetes Engine (GKE)."</span>,
+      <span class="a">"cite"</span>: <span class="k">"runtimes#tpu7x-note"</span> },
+    { <span class="a">"text"</span>: <span class="v">"Use the tpu7x-standard-4t machine type. Each TPU7x VM has 4 chips."</span>,
+      <span class="a">"cite"</span>: <span class="k">"tpu7x#vm"</span> },
+    { <span class="a">"text"</span>: <span class="v">"Use JAX or PyTorch. TensorFlow isn't supported on TPU7x."</span>,
+      <span class="a">"cite"</span>: <span class="k">"tpu7x#frameworks"</span> }
+  ],
+  <span class="a">"not_used"</span>: <span class="q">"v6e and v5p version strings: out of scope for this question"</span>,
+  <span class="a">"checks"</span>: { <span class="a">"citations_in_scope"</span>: <span class="v">"3/3"</span>, <span class="a">"values_grounded"</span>: <span class="v">"4/4"</span>, <span class="a">"out_of_scope_values"</span>: <span class="v">0</span> },
+  <span class="a">"run"</span>: { <span class="a">"model"</span>: <span class="m">"gemini-3.8-flash"</span>, <span class="a">"calls"</span>: <span class="v">2</span>, <span class="a">"tokens_in"</span>: <span class="v">6410</span>, <span class="a">"tokens_out"</span>: <span class="v">690</span> }
+}</pre>
+          <div class="annot">
+            <div class="teal"><b>Scope</b>Decided by <code>resolve_scope</code> from the subject scheme. The model fills the field but its enum allows only the resolved value.</div>
+            <div class="purple"><b>Citations</b>Each <code>cite</code> comes from an enum of retrieved chunk IDs, so the model can't cite a chunk it didn't see.</div>
+            <div class="coral"><b>Not used</b>Tells the reader that other generations exist and were excluded on purpose. It doesn't repeat their values.</div>
+          </div>
+        </div>
+        <div class="figure-note">Values from the TPU7x page and the TPU software versions page<sup class="ref"><a href="#src-2">2</a></sup><sup class="ref"><a href="#src-5">5</a></sup>. Token counts are illustrative.</div>
+      </div>
+
+      <h3 class="subsection-heading" id="lineage">5.8 What VALID keeps from VaultRAG</h3>
+      <p class="body-text">VaultRAG is a deployed, voice-first RAG service for manufacturing procedures. It runs on Cloud Run and Firestore Vector Search, refuses at five guardrail stages, and passed 17 of 20 queries in its own guardrail evaluation, with the three misses analysed<sup class="ref"><a href="#src-25">25</a></sup>. VALID keeps its spine and replaces what was specific to plain text.</p>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>VaultRAG part</th><th>In VALID</th><th>Why</th></tr></thead>
+          <tbody>
+            <tr><td>Firestore Vector Search, cosine, normalised vectors</td><td><span class="badge teal">Kept</span> plus a scope pre-filter</td><td>The store already supports filters before kNN<sup class="ref"><a href="#src-12">12</a></sup></td></tr>
+            <tr><td>Scope guard and confidence threshold (similarity floors 0.62 and 0.70)</td><td><span class="badge teal">Kept</span> recalibrated on the TPU question set</td><td>Out-of-domain questions still need a refusal</td></tr>
+            <tr><td>Citation enforcement with one strict retry</td><td><span class="badge amber">Changed</span> to citation enums plus scope and grounding checks</td><td>A regex for "Section 18.4" can't prove a citation is in scope</td></tr>
+            <tr><td>Query normalisation with a model</td><td><span class="badge amber">Changed</span> to subject scheme matching, no model</td><td>The scope must be deterministic and owned by the IA</td></tr>
+            <tr><td>Heading-pattern chunker for plain text</td><td><span class="badge amber">Changed</span> to DITA-aware chunks with scope</td><td>DITA structure gives clean chunk edges and the scope</td></tr>
+            <tr><td>Wider retrieval when a hazard keyword fires</td><td><span class="badge red">Dropped</span></td><td>Widening is the move VALID forbids</td></tr>
+            <tr><td>Voice input, air-gapped production path</td><td><span class="badge red">Dropped</span></td><td>A second job. The Cloud TPU docs are public.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="subsection-heading" id="runtime">5.9 Where it runs</h3>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Part</th><th>Technology</th><th>Free tier or licence</th></tr></thead>
+          <tbody>
+            <tr><td>Agent framework</td><td>Agent Development Kit<sup class="ref"><a href="#src-19">19</a></sup></td><td>Apache 2.0</td></tr>
+            <tr><td>Answer model</td><td>Gemini 3.8 Flash (<code>gemini-3.8-flash</code>), structured output</td><td>Free of charge on the Gemini API free tier<sup class="ref"><a href="#src-16">16</a></sup></td></tr>
+            <tr><td>Embeddings</td><td>Gemini Embedding 2 (<code>gemini-embedding-2</code>), 1,536 dimensions<sup class="ref"><a href="#src-14">14</a></sup></td><td>Gemini API; priced on the same page<sup class="ref"><a href="#src-16">16</a></sup></td></tr>
+            <tr><td>Vector store and scope filter</td><td>Firestore vector search with composite vector indexes<sup class="ref"><a href="#src-12">12</a></sup></td><td>50,000 reads and 20,000 writes a day; one read per 100 kNN index entries<sup class="ref"><a href="#src-13">13</a></sup></td></tr>
+            <tr><td>Exact-term search</td><td>SQLite FTS5 with BM25<sup class="ref"><a href="#src-24">24</a></sup></td><td>Public domain</td></tr>
+            <tr><td>Profiling and audit</td><td>Python and lxml</td><td>Open source</td></tr>
+            <tr><td>Index trigger</td><td>GitHub Actions</td><td>Free for public repositories<sup class="ref"><a href="#src-23">23</a></sup></td></tr>
+            <tr><td>Agent runtime</td><td>Cloud Run service, <code>us-central1</code></td><td>180,000 vCPU-seconds and 2 million requests a month<sup class="ref"><a href="#src-21">21</a></sup></td></tr>
+            <tr><td>Question log</td><td>BigQuery</td><td>10 GiB storage and 1 TiB of queries a month<sup class="ref"><a href="#src-22">22</a></sup></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="two-up">
+        <div class="figure" id="fig13">
+          <div class="figure-label">Figure 13</div>
+          <div class="figure-sublabel">Model cost per 1,000 questions (modelled)</div>
+          <div class="figure-body">
+            <svg viewBox="0 0 360 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart. POC on the free tier: 0 dollars. Gemini 3.8 Flash at the introductory price to 31 December 2026: 4 dollars per 1,000 questions. At the standard price from 1 January 2027: 8 dollars per 1,000 questions.">
+              <g font-family="Inter,sans-serif">
+                <text x="16" y="24" font-size="10" fill="#1a1917">POC on the free tier</text>
+                <text x="16" y="36" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">public sample content only</text>
+                <rect x="16" y="42" width="3" height="20" rx="1" fill="#0a6b52"/>
+                <text x="26" y="56" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">$0</text>
+
+                <text x="16" y="86" font-size="10" fill="#1a1917">Gemini 3.8 Flash, intro price</text>
+                <text x="16" y="98" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">$0.75 / $3.75 per 1M · to 31 Dec 2026</text>
+                <rect x="16" y="104" width="140" height="20" rx="3" fill="#80c8b0"/>
+                <text x="162" y="118" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">$4.00</text>
+
+                <text x="16" y="148" font-size="10" fill="#1a1917">Gemini 3.8 Flash, standard price</text>
+                <text x="16" y="160" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">$1.50 / $7.50 per 1M · from 1 Jan 2027</text>
+                <rect x="16" y="166" width="280" height="20" rx="3" fill="#4a40b0"/>
+                <text x="302" y="180" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">$8.00</text>
+
+                <text x="16" y="214" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880">3,100 tokens in · 350 out · 1.1 calls a question</text>
+              </g>
+            </svg>
+          </div>
+          <div class="figure-note">Prices from the Gemini API pricing page<sup class="ref"><a href="#src-16">16</a></sup>. Token counts and the revision rate are assumptions: five chunks of about 500 tokens plus instructions, and one revision in ten questions. Query embeddings are not included.</div>
+        </div>
+
+        <div class="figure" id="fig14">
+          <div class="figure-label">Figure 14</div>
+          <div class="figure-sublabel">Questions a day inside the free quotas (modelled)</div>
+          <div class="figure-body">
+            <svg viewBox="0 0 360 230" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Bar chart. Firestore reads allow about 7,100 questions a day at 7 reads each. Cloud Run vCPU-seconds allow about 2,000 questions a day at 3 seconds each. Cloud Run is the limit.">
+              <g font-family="Inter,sans-serif">
+                <text x="16" y="34" font-size="10" fill="#1a1917">Firestore reads</text>
+                <text x="16" y="46" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">50,000 a day ÷ 7 reads a question</text>
+                <rect x="16" y="52" width="284" height="22" rx="3" fill="#90b8e8"/>
+                <text x="306" y="67" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">7,100</text>
+
+                <text x="16" y="104" font-size="10" fill="#1a1917">Cloud Run vCPU time</text>
+                <text x="16" y="116" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">180,000 s a month ÷ 3 s ÷ 30 days</text>
+                <rect x="16" y="122" width="80" height="22" rx="3" fill="#0a6b52"/>
+                <text x="102" y="137" font-family="IBM Plex Mono,monospace" font-size="10" fill="#1a1917">2,000 · the limit</text>
+
+                <rect x="16" y="168" width="328" height="44" rx="4" fill="#e8f5f0" stroke="#80c8b0" stroke-width="0.75"/>
+                <text x="180" y="186" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">a test set of 80 questions, run 20 times a day,</text>
+                <text x="180" y="200" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#0a6b52">stays inside every free quota</text>
+              </g>
+            </svg>
+          </div>
+          <div class="figure-note">Free quotas from the Firestore and Cloud Run pricing pages<sup class="ref"><a href="#src-13">13</a></sup><sup class="ref"><a href="#src-21">21</a></sup>. Reads assume 5 documents plus 2 batches of kNN index entries. Run time assumes 3 vCPU-seconds a question, mostly waiting on Gemini.</div>
+        </div>
+      </div>
+
+      <p class="body-text"><strong>Data handling.</strong> The sample content is public, so the Gemini API free tier is acceptable for the POC. Free-tier content is used to improve Google products, and paid-tier content is not, so private documentation needs the paid tier<sup class="ref"><a href="#src-16">16</a></sup>. The free tier is offered in the EEA, Switzerland and the UK<sup class="ref"><a href="#src-17">17</a></sup>. The POC runs in <code>us-central1</code>, because the Cloud Run free tier is defined on Tier 1 pricing<sup class="ref"><a href="#src-21">21</a></sup>.</p>
+      <p class="body-text"><strong>Known limits.</strong> VALID is only as right as the profiling. It finds unscoped values that it can recognise, such as version strings and key values, but not a sentence that is wrong for one generation in plain words. Questions about what changed between generations are out of scope for the MVP; VALID answers each generation separately and doesn't compute the difference.</p>
+    </section>
+
+    <!-- §6 SIMULATOR -->
+    <section class="section" id="simulator">
+      <h2 class="section-heading"><span class="section-num">§6</span> Answer Simulator</h2>
+      <p class="body-text">Three questions. The first passes cleanly. In the second, the filter keeps out the wrong generations and a check stops a flag the model invented. In the third, the question has no generation, so VALID asks.</p>
+      <div class="sim-wrap">
+        <div class="sim-header">
+          <div class="sim-title">valid · answer simulator</div>
+          <div class="sim-status" id="sim-status">idle</div>
+        </div>
+        <div class="sim-body">
+          <div class="sim-controls">
+            <div class="sim-controls-label">Sample question</div>
+            <button class="scenario-btn" data-s="0">Chips in a TPU7x VM · clean</button>
+            <button class="scenario-btn" data-s="1">Ironwood --version · one revision</button>
+            <button class="scenario-btn" data-s="2">Chips per host · no scope</button>
+            <div class="scenario-desc" id="sim-desc"></div>
+            <button class="run-btn" id="run-btn">run question →</button>
+          </div>
+          <div class="sim-stages" id="sim-stages"></div>
+        </div>
+        <pre class="sim-output" id="sim-output"><span class="out-comment">// choose a sample question and run it</span></pre>
+        <div class="sim-note">Scripted demo. No live model call. Scores, token counts and timings are illustrative.</div>
+      </div>
+    </section>
+
+    <!-- §7 METRICS -->
+    <section class="section" id="metrics">
+      <h2 class="section-heading"><span class="section-num">§7</span> Success Metrics</h2>
+      <p class="body-text">The MVP is measured on a trap set: questions whose correct answer differs between v5p, v6e and TPU7x. The set has 60 scoped questions: four facts (the three in Figure 2, plus supported frameworks) for each of three generations, in five wordings each. It also has 10 questions with no generation, and 10 that name two generations. Each question has a known answer and known source chunks. The same set runs against an unfiltered baseline built from the same chunks.</p>
+      <div class="table-wrap">
+        <table class="comp-table">
+          <thead><tr><th>Metric</th><th>How it is measured</th><th>MVP target</th></tr></thead>
+          <tbody>
+            <tr class="highlight"><td>Wrong-generation answers that reach a reader</td><td>Trap-set answers whose value or procedure belongs to another generation</td><td><strong>0</strong></td></tr>
+            <tr><td>Citations in scope</td><td><code>check_answer</code>: cited chunks whose scope includes the resolved scope</td><td>100%</td></tr>
+            <tr><td>Values grounded in the cited chunk</td><td><code>check_answer</code>: numbers, units, flags and commands found in their source</td><td>100%</td></tr>
+            <tr><td>Scoped questions answered correctly</td><td>Correct answers out of 60, against the unfiltered baseline on the same set</td><td>54 or more (90%); the rest refused, none wrong</td></tr>
+            <tr><td>Unscoped questions handled</td><td>Questions with no generation that get a choice, not an answer</td><td>10 of 10</td></tr>
+            <tr><td>Unscoped generation values in the index</td><td><code>audit_scope</code> findings left open after IA review</td><td>0</td></tr>
+            <tr><td>Time to answer</td><td>Question received to answer sent, median</td><td>Under 5 seconds</td></tr>
+            <tr><td>Questions with cost logged</td><td>Rows in the question log with tokens and cost</td><td>100%</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="figure" id="fig15">
+        <div class="figure-label">Figure 15</div>
+        <div class="figure-sublabel">Trap-set scorecard format: baseline compared with VALID</div>
+        <div class="figure-body">
+          <svg viewBox="0 0 720 240" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sample stacked bars for two systems on three question groups. Scoped questions: the baseline gets 35 right and 25 wrong; VALID gets 56 right and 4 refused. Questions with no generation: the baseline answers all 10 with one generation's value; VALID asks in all 10. Questions naming two generations: the baseline gets 5 right and 5 wrong; VALID gets 9 right and 1 refused.">
+            <g font-family="Inter,sans-serif">
+              <g font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#8a8880" text-anchor="middle">
+                <text x="250" y="20">0%</text><text x="347.5" y="20">25%</text><text x="445" y="20">50%</text><text x="542.5" y="20">75%</text><text x="640" y="20">100%</text>
+              </g>
+              <g stroke="#e8e5de" stroke-width="0.75"><line x1="347.5" y1="26" x2="347.5" y2="226"/><line x1="445" y1="26" x2="445" y2="226"/><line x1="542.5" y1="26" x2="542.5" y2="226"/></g>
+
+              <text x="16" y="44" font-size="10.5" fill="#1a1917">Scoped · baseline</text><text x="16" y="55" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">60 questions</text>
+              <rect x="250" y="34" width="227.5" height="18" fill="#0a6b52"/><text x="363.75" y="46.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">35 right</text>
+              <rect x="477.5" y="34" width="162.5" height="18" fill="#b03820"/><text x="558.75" y="46.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">25 wrong generation</text>
+              <text x="16" y="74" font-size="10.5" fill="#1a1917">Scoped · VALID</text>
+              <rect x="250" y="64" width="364" height="18" fill="#0a6b52"/><text x="432" y="76.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">56 right</text>
+              <rect x="614" y="64" width="26" height="18" fill="#b07010"/><text x="627" y="76.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">4</text>
+
+              <text x="16" y="114" font-size="10.5" fill="#1a1917">No generation · baseline</text><text x="16" y="125" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">10 questions</text>
+              <rect x="250" y="104" width="390" height="18" fill="#b03820"/><text x="445" y="116.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">10 answered with one generation's value</text>
+              <text x="16" y="144" font-size="10.5" fill="#1a1917">No generation · VALID</text>
+              <rect x="250" y="134" width="390" height="18" fill="#1850a0"/><text x="445" y="146.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">10 asked which generation</text>
+
+              <text x="16" y="184" font-size="10.5" fill="#1a1917">Two generations · baseline</text><text x="16" y="195" font-family="IBM Plex Mono,monospace" font-size="8" fill="#8a8880">10 questions</text>
+              <rect x="250" y="174" width="195" height="18" fill="#0a6b52"/><text x="347.5" y="186.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">5 right</text>
+              <rect x="445" y="174" width="195" height="18" fill="#b03820"/><text x="542.5" y="186.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">5 mixed up</text>
+              <text x="16" y="214" font-size="10.5" fill="#1a1917">Two generations · VALID</text>
+              <rect x="250" y="204" width="351" height="18" fill="#0a6b52"/><text x="425.5" y="216.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">9 right, one answer each</text>
+              <rect x="601" y="204" width="39" height="18" fill="#b07010"/><text x="620.5" y="216.5" text-anchor="middle" font-family="IBM Plex Mono,monospace" font-size="8.5" fill="#ffffff">1</text>
+            </g>
+          </svg>
+          <div class="legend"><span><i class="s-teal"></i>right, cited in scope</span><span><i class="s-blue"></i>asked the reader</span><span><i class="s-amber"></i>refused with a gap issue</span><span><i class="s-coral"></i>wrong generation</span></div>
+        </div>
+        <div class="figure-note">Sample scorecard format with illustrative values, not results. The baseline's scoped accuracy is set near the 58% that VersionRAG measured for standard RAG<sup class="ref"><a href="#src-6">6</a></sup>. The shape to look for: VALID turns every red bar into green, blue or amber. It may answer less, but it is never wrong about the generation.</div>
+      </div>
+
+      <div class="figure" id="fig16">
+        <div class="figure-label">Figure 16</div>
+        <div class="figure-sublabel">Sample index report on a docs merge</div>
+        <div class="figure-body">
+          <div class="report">
+            <div class="report-head"><span>Index build · merge 4c2e91a · cloud-tpu docs set</span><span class="badge amber">1 scope finding</span></div>
+            <div class="report-sum">
+              <div><b style="color:var(--teal)">412</b><span>chunks scoped</span></div>
+              <div><b style="color:var(--teal)">3</b><span>generations in scheme</span></div>
+              <div><b style="color:var(--blue)">18</b><span>chunks re-embedded</span></div>
+              <div><b style="color:var(--coral)">1</b><span>unscoped value</span></div>
+            </div>
+            <div class="report-section"><h5>Scope</h5><ul>
+              <li>Cascaded from the map: 377 chunks. Narrowed by element profiling: 21. Shared, no attribute: 14.</li>
+              <li>Profiling values not in the subject scheme: 0.</li></ul></div>
+            <div class="report-section"><h5>Finding</h5><ul>
+              <li><code>create-tpu-vm.dita</code>, line 41: shared step contains <code>v2-alpha-tpuv6e</code>, owned by <code>v6e</code>. Issue #87 opened for the information architect.</li></ul></div>
+            <div class="report-section"><h5>Indexes</h5><p>Firestore: 18 documents written. Composite vector indexes: <code>in_v5p</code>, <code>in_v6e</code>, <code>in_tpu7x</code>. BM25: 18 rows replaced. Run time 41 s.</p></div>
+          </div>
+        </div>
+        <div class="figure-note">The report tells the information architect where profiling is missing. One line to fix, and the next merge closes the issue. Counts are illustrative.</div>
+      </div>
+    </section>
+
+    <section class="section" id="sources">
+      <h2 class="section-heading">Sources</h2>
+      <p class="body-text">Checked on 20 October 2026.</p>
+      <ol class="sources">
+        <li id="src-1"><span>Google Developers, "Site Policies." <a href="https://developers.google.com/site-policies">developers.google.com/site-policies</a></span></li>
+        <li id="src-2"><span>Google Cloud, "TPU7x (Ironwood)," last updated 19 October 2026. <a href="https://docs.cloud.google.com/tpu/docs/tpu7x">docs.cloud.google.com/tpu/docs/tpu7x</a></span></li>
+        <li id="src-3"><span>Google Cloud, "TPU v6e," last updated 13 October 2026. <a href="https://docs.cloud.google.com/tpu/docs/v6e">docs.cloud.google.com/tpu/docs/v6e</a></span></li>
+        <li id="src-4"><span>Google Cloud, "TPU v5p," last updated 13 October 2026. <a href="https://docs.cloud.google.com/tpu/docs/v5p">docs.cloud.google.com/tpu/docs/v5p</a></span></li>
+        <li id="src-5"><span>Google Cloud, "TPU software versions," last updated 9 October 2026. <a href="https://docs.cloud.google.com/tpu/docs/runtimes">docs.cloud.google.com/tpu/docs/runtimes</a></span></li>
+        <li id="src-6"><span>D. Huwiler, K. Stockinger and J. Fürst, "VersionRAG: Version-Aware Retrieval-Augmented Generation for Evolving Documents," arXiv:2510.08109. <a href="https://arxiv.org/html/2510.08109v1">arxiv.org/html/2510.08109v1</a></span></li>
+        <li id="src-7"><span>Stack Overflow, "2025 Developer Survey: AI." <a href="https://survey.stackoverflow.co/2025/ai">survey.stackoverflow.co/2025/ai</a></span></li>
+        <li id="src-8"><span>DITA 1.3 specification, "Filtering based on metadata attributes." <a href="https://dita-lang.org/1.3/dita/archspec/base/filtering">dita-lang.org/1.3/dita/archspec/base/filtering</a></span></li>
+        <li id="src-9"><span>DITA 1.3 specification, "Conditional processing attributes." <a href="https://dita-lang.org/1.3/dita/archspec/base/conditional-processing-attributes">dita-lang.org/1.3/dita/archspec/base/conditional-processing-attributes</a></span></li>
+        <li id="src-10"><span>DITA 1.3 specification, "Cascading of metadata attributes in a DITA map." <a href="https://dita-lang.org/1.3/dita/archspec/base/cascading-in-a-ditamap">dita-lang.org/1.3/dita/archspec/base/cascading-in-a-ditamap</a></span></li>
+        <li id="src-11"><span>DITA 1.3 specification, "Defining controlled values for attributes." <a href="https://dita-lang.org/1.3/dita/archspec/base/controlled-values-for-attributes">dita-lang.org/1.3/dita/archspec/base/controlled-values-for-attributes</a></span></li>
+        <li id="src-12"><span>Google Cloud, "Search with vector embeddings" (Firestore), last updated 19 October 2026. <a href="https://docs.cloud.google.com/firestore/native/docs/vector-search">docs.cloud.google.com/firestore/native/docs/vector-search</a></span></li>
+        <li id="src-13"><span>Google Cloud, "Firestore pricing." <a href="https://cloud.google.com/firestore/pricing">cloud.google.com/firestore/pricing</a></span></li>
+        <li id="src-14"><span>Google AI for Developers, "Embeddings," last updated 9 October 2026. <a href="https://ai.google.dev/gemini-api/docs/embeddings">ai.google.dev/gemini-api/docs/embeddings</a></span></li>
+        <li id="src-15"><span>Google AI for Developers, "Gemini models," last updated 19 October 2026. <a href="https://ai.google.dev/gemini-api/docs/models">ai.google.dev/gemini-api/docs/models</a></span></li>
+        <li id="src-16"><span>Google AI for Developers, "Gemini Developer API pricing." <a href="https://ai.google.dev/gemini-api/docs/pricing">ai.google.dev/gemini-api/docs/pricing</a></span></li>
+        <li id="src-17"><span>Google AI for Developers, "Billing," last updated 28 September 2026. <a href="https://ai.google.dev/gemini-api/docs/billing">ai.google.dev/gemini-api/docs/billing</a></span></li>
+        <li id="src-18"><span>Google AI for Developers, "Structured outputs." <a href="https://ai.google.dev/gemini-api/docs/structured-output">ai.google.dev/gemini-api/docs/structured-output</a></span></li>
+        <li id="src-19"><span>Google, Agent Development Kit. <a href="https://github.com/google/adk-python">github.com/google/adk-python</a></span></li>
+        <li id="src-20"><span>Google AI for Developers, "Function calling with the Gemini API." <a href="https://ai.google.dev/gemini-api/docs/function-calling">ai.google.dev/gemini-api/docs/function-calling</a></span></li>
+        <li id="src-21"><span>Google Cloud, "Cloud Run pricing." <a href="https://cloud.google.com/run/pricing">cloud.google.com/run/pricing</a></span></li>
+        <li id="src-22"><span>Google Cloud, "BigQuery pricing." <a href="https://cloud.google.com/bigquery/pricing">cloud.google.com/bigquery/pricing</a></span></li>
+        <li id="src-23"><span>GitHub Docs, "GitHub Actions billing." <a href="https://docs.github.com/en/billing/concepts/product-billing/github-actions">docs.github.com/en/billing/concepts/product-billing/github-actions</a></span></li>
+        <li id="src-24"><span>SQLite, "FTS5 Extension: the bm25() function." <a href="https://www.sqlite.org/fts5.html#the_bm25_function">sqlite.org/fts5.html</a></span></li>
+        <li id="src-25"><span>Siddharth Rao, "VaultRAG," repository and design document. <a href="https://github.com/raosiddharthp/vaultrag">github.com/raosiddharthp/vaultrag</a></span></li>
+        <li id="src-26"><span>Siddharth Rao, "QueryForge," design document. <a href="https://github.com/raosiddharthp/queryforge">github.com/raosiddharthp/queryforge</a></span></li>
+        <li id="src-27"><span>Siddharth Rao, "MANIFEST," design document. <a href="https://raosiddharthp.github.io/Manifest/">raosiddharthp.github.io/Manifest</a></span></li>
+        <li id="src-28"><span>Siddharth Rao, "KnowledgeFlow," design document. <a href="https://raosiddharthp.github.io/KnowledgeFlow/">raosiddharthp.github.io/KnowledgeFlow</a></span></li>
+        <li id="src-29"><span>Siddharth Rao, "AlignR," design document. <a href="https://raosiddharthp.github.io/AlignR/">raosiddharthp.github.io/AlignR</a></span></li>
+        <li id="src-30"><span>G. V. Cormack, C. L. A. Clarke and S. Büttcher, "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods," SIGIR 2009. <a href="https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf">plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf</a></span></li>
+      </ol>
+    </section>
+
+  </div>
+
+  <footer class="doc-footer">
+    <span>valid / design-doc · v0.1</span>
+    <span>Siddharth Rao · October 2026</span>
+  </footer>
+</main>
+</div>
+
+<script>
+(function(){
+  var stages = [
+    ['resolve_scope','subject scheme · no model'],
+    ['retrieve_in_scope','pre-filter · kNN · BM25'],
+    ['scope_gate','similarity floor · in-scope count'],
+    ['generate_answer','Gemini · structured output'],
+    ['check_answer','scope · grounding · leaks'],
+    ['revise','Gemini · failed steps only'],
+    ['refuse_or_ask','reader choice · gap issue'],
+    ['log_question','BigQuery row']
+  ];
+  // each stage: [ms, state, lines]; state: done | skip | model | review
+  var scenarios = [
+    { desc:'<strong>Clean pass.</strong> "How many chips are in one TPU7x VM?" The question names the generation. Five chunks come back, all in scope, and every check passes.',
+      result:'done', status:'answered',
+      s:[
+        [140,'done',[['head','valid · q-1043 · "How many chips are in one TPU7x VM?"'],['k','scope: ','v','[tpu7x] · matched "TPU7x"']]],
+        [420,'done',[['k','filter: ','v','in_tpu7x == true'],['k','kNN: ','v','5 · top tpu7x#vm 0.86'],['k','bm25: ','v','4 · fused 5 · in scope 5/5']]],
+        [40,'done',[['k','gate: ','v','top similarity 0.86 >= 0.70 · pass']]],
+        [1300,'model',[['m','gemini-3.8-flash · structured output · 3,020 in / 210 out'],['k','answer: ','v','"Each TPU7x VM has 4 chips." cite tpu7x#vm']]],
+        [60,'done',[['k','checks: ','v','citations in scope 1/1 · values grounded 1/1 · leaks 0']]],
+        [0,'skip',[['c','// revise: skipped, no failures']]],
+        [0,'skip',[['c','// refuse_or_ask: skipped']]],
+        [90,'done',[['k','log: ','v','scope tpu7x · 1 call · $0.0031'],['head','result: answered · TPU7x · 1 model call']]]
+      ]},
+    { desc:'<strong>The trap.</strong> "I\'m on Ironwood. Which --version do I pass?" The filter keeps out the v6e and v5p rows that rank highest without it. Gemini adds a flag from its own training. The grounding check stops it, and one revision fixes it (Figure 11).',
+      result:'done', status:'answered · 1 revision',
+      s:[
+        [160,'done',[['head','valid · q-1044 · "I\'m on Ironwood. Which --version do I pass?"'],['k','scope: ','v','[tpu7x] · matched "Ironwood" (subject scheme synonym)']]],
+        [460,'done',[['k','filter: ','v','in_tpu7x == true'],['c','// without the filter, the top 3 would be: runtimes#v6e 0.83, runtimes#v5p 0.81, create-tpu-vm#step-3 0.80'],['k','kNN: ','v','5 · top tpu7x#get-capacity 0.78'],['k','bm25: ','v','"--version" "Ironwood" · fused 5 · in scope 5/5']]],
+        [40,'done',[['k','gate: ','v','top similarity 0.78 >= 0.70 · pass']]],
+        [1500,'model',[['m','gemini-3.8-flash · structured output · 3,180 in / 340 out'],['m','steps[1]: "... pass --version=v2-alpha-tpuv7 ..."']]],
+        [70,'review',[['f','FAIL steps[1]: "v2-alpha-tpuv7" appears in no cited chunk'],['k','checks: ','v','citations in scope 3/3 · grounded 3/4 · leaks 0']]],
+        [1200,'model',[['m','revise 1: steps[1] only · same 5 chunks'],['m','steps[1]: "The Cloud TPU API doesn\'t support TPU7x. Use Compute Engine or GKE."'],['k','re-check: ','v','in scope 3/3 · grounded 4/4 · leaks 0']]],
+        [0,'skip',[['c','// refuse_or_ask: skipped']]],
+        [90,'done',[['k','log: ','v','scope tpu7x · 2 calls · 1 revision · $0.0072'],['head','result: answered · TPU7x · v6e and v5p content never reached the model']]]
+      ]},
+    { desc:'<strong>No scope.</strong> "How many chips per host?" The answer is 4, 8 or 4, depending on the generation. VALID asks instead of guessing. The reader picks v6e and gets one cited answer.',
+      result:'review', status:'asked, then answered',
+      s:[
+        [130,'review',[['head','valid · q-1045 · "How many chips per host?"'],['w','scope: none found · answer differs by generation in 3 of 3 profiles']]],
+        [0,'skip',[['c','// retrieve_in_scope: waiting for scope']]],
+        [0,'skip',[['c','// scope_gate: skipped']]],
+        [0,'skip',[['c','// generate_answer: no model call without a scope']]],
+        [0,'skip',[['c','// check_answer: skipped']]],
+        [0,'skip',[['c','// revise: skipped']]],
+        [700,'done',[['k','ask: ','v','"Which TPU generation? v5p · v6e · TPU7x"'],['k','reader: ','v','v6e'],['k','rerun: ','v','scope [v6e] · 5/5 in scope · "Each v6e host has 8 chips." cite v6e#system-architecture']]],
+        [90,'done',[['k','log: ','v','asked 1 · scope v6e · 1 call · $0.0030'],['head','result: asked, then answered · v6e']]]
+      ]}
+  ];
+
+  var host=document.getElementById('sim-stages');
+  host.innerHTML=stages.map(function(s,i){
+    return '<div class="stage-row"><div class="stage-name"><div class="stage-dot" id="dot-'+i+'"></div><div><div class="stage-name-text">'+s[0]+'</div><div class="stage-sub">'+s[1]+'</div></div></div><div class="stage-bar-wrap"><div class="stage-bar" id="bar-'+i+'"></div></div><div class="stage-timing" id="tim-'+i+'">·</div></div>';
+  }).join('');
+
+  var active=0, running=false;
+  var btns=document.querySelectorAll('.scenario-btn');
+  var desc=document.getElementById('sim-desc');
+  var out=document.getElementById('sim-output');
+  var status=document.getElementById('sim-status');
+  var run=document.getElementById('run-btn');
+  var reduce=window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function reset(){
+    for (var i=0;i<stages.length;i++){
+      document.getElementById('dot-'+i).className='stage-dot';
+      var b=document.getElementById('bar-'+i); b.className='stage-bar'; b.style.width='0';
+      var t=document.getElementById('tim-'+i); t.className='stage-timing'; t.textContent='·';
+    }
+    out.innerHTML='<span class="out-comment">// choose a sample question and run it</span>';
+    status.textContent='idle'; status.className='sim-status';
+  }
+  function select(i){
+    if (running) return;
+    active=i;
+    btns.forEach(function(b,j){ b.classList.toggle('active', i===j); });
+    desc.innerHTML=scenarios[i].desc;
+    reset();
+  }
+  function wait(ms){ return new Promise(function(r){ setTimeout(r, reduce ? 0 : ms); }); }
+  var cls={head:'out-head',c:'out-comment',w:'out-warn',f:'out-fail',m:'out-model'};
+  function line(l){
+    var s=document.createElement('span'); s.className='out-line';
+    if (l[0]==='k'){
+      var a=document.createElement('span'); a.className='out-key'; a.textContent=l[1];
+      var v=document.createElement('span'); v.className='out-val'; v.textContent=l[3];
+      s.appendChild(a); s.appendChild(v);
+    } else {
+      var x=document.createElement('span'); x.className=cls[l[0]]; x.textContent=l[1]; s.appendChild(x);
+    }
+    out.appendChild(s); out.scrollTop=out.scrollHeight;
+  }
+  async function go(){
+    if (running) return;
+    running=true; run.disabled=true;
+    var sc=scenarios[active];
+    reset(); out.innerHTML='';
+    status.textContent='running'; status.className='sim-status running';
+    for (var i=0;i<stages.length;i++){
+      var st=sc.s[i], dot=document.getElementById('dot-'+i), bar=document.getElementById('bar-'+i), tim=document.getElementById('tim-'+i);
+      if (st[1]==='skip'){
+        dot.className='stage-dot skip'; bar.className='stage-bar skip'; bar.style.width='100%'; tim.textContent='skipped';
+        st[2].forEach(line); await wait(150); continue;
+      }
+      dot.className='stage-dot running'; bar.style.width='100%';
+      if (st[1]==='model') bar.className='stage-bar model';
+      if (st[1]==='review') bar.className='stage-bar review';
+      await wait(st[0]);
+      dot.className='stage-dot '+(st[1]==='model'?'model':(st[1]==='review'?'review':'done'));
+      tim.textContent = st[1]==='review' ? 'held' : (st[0]<1000 ? st[0]+'ms' : (st[0]/1000).toFixed(1)+'s');
+      tim.className='stage-timing done';
+      for (var j=0;j<st[2].length;j++){ line(st[2][j]); await wait(60); }
+    }
+    status.textContent=sc.status;
+    status.className='sim-status '+(sc.result==='review'?'review':'done');
+    running=false; run.disabled=false;
+  }
+  btns.forEach(function(b){ b.addEventListener('click', function(){ select(+b.getAttribute('data-s')); }); });
+  run.addEventListener('click', go);
+  select(0);
+
+  var sections=document.querySelectorAll('header[id], section[id]');
+  var links=document.querySelectorAll('.sidebar-nav a:not(.sub)');
+  function onScroll(){
+    var cur='';
+    sections.forEach(function(s){ if (window.scrollY >= s.offsetTop - 120) cur=s.id; });
+    links.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href')==='#'+cur); });
+  }
+  window.addEventListener('scroll', onScroll, {passive:true}); onScroll();
+})();
+</script>
+</body>
+</html>
