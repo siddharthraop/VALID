@@ -12,7 +12,7 @@ another generation never reaches the model. Plain Python checks every
 citation and every value before the reader sees an answer. If nothing in
 scope answers the question, VALID says so and opens a gap issue.
 
-**[Read the design document](https://raosiddharthp.github.io/VALID/)**
+**[Read the design document](https://siddharthraop.github.io/VALID/)**
 
 ## Status
 
@@ -200,7 +200,7 @@ The design document is a single HTML page with no build step.
 1.  Clone the repository:
 
     ```sh
-    git clone https://github.com/raosiddharthp/VALID.git
+    git clone https://github.com/siddharthraop/VALID.git
     cd VALID
     ```
 
@@ -270,7 +270,7 @@ economic problem in documentation, and each builds on the same sample content.
 ## Contact
 
 Siddharth Rao. To ask a question or suggest a change,
-[open an issue](https://github.com/raosiddharthp/VALID/issues).
+[open an issue](https://github.com/siddharthraop/VALID/issues).
 
 ## License
 
