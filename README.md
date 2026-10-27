@@ -277,3 +277,15 @@ Siddharth Rao. To ask a question or suggest a change,
 The design document, diagrams, and code in this repository are licensed under
 the [MIT License](LICENSE). Adapted Google content remains under the Creative
 Commons Attribution 4.0 License.
+
+## Run it
+
+Local checks (free, no cloud): `python scripts/check_agent.py`, `python scripts/check_offline.py`, `python scripts/check_web.py`.
+Local portal: `source start.sh`, then `uvicorn valid.web:app --port 8080`.
+Deploy: see PROGRESS.md and the Dockerfile. The service is protected by an access code and a daily question cap.
+
+## Data and attribution
+
+`data/chunks.jsonl`, `data/owned.json` and `data/tpu-scheme.ditamap` are derived from the documentation in
+[siddharthraop/dita-corpus](https://github.com/siddharthraop/dita-corpus). Credit and licence terms for that content
+are those of that repository.
