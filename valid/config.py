@@ -38,3 +38,15 @@ EXTRA_FALLBACK_MODEL = os.environ.get("VALID_EXTRA_FALLBACK_MODEL", "gemini-3.5-
 MODEL_CHAIN = list(dict.fromkeys([ANSWER_MODEL, FALLBACK_MODEL, EXTRA_FALLBACK_MODEL]))
 FIRST_TIMEOUT_S = int(os.environ.get("VALID_FIRST_TIMEOUT", "15"))     # the first model gets less time
 COOLDOWN_S = int(os.environ.get("VALID_COOLDOWN", "300"))
+
+# Portal
+DAILY_CAP = int(os.environ.get("VALID_DAILY_CAP", "50"))          # questions per UTC day, whole service (protects the free tier)
+MAX_QUESTION_CHARS = int(os.environ.get("VALID_MAX_CHARS", "400"))
+ACCESS_CODE = os.environ.get("VALID_ACCESS_CODE", "")                # empty = open (local work only); set in the cloud
+CORPUS_WEB_BASE = os.environ.get("VALID_CORPUS_WEB", "https://github.com/siddharthraop/dita-corpus/blob/main")
+
+
+def scheme_path() -> Path:
+    """The subject scheme: from the corpus checkout when it is there (local work), else the copy shipped in data/ (the container)."""
+    p = CORPUS_DIR / SCHEME_MAP
+    return p if p.exists() else DATA_DIR / "tpu-scheme.ditamap"

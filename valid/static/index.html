@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VALID — Version-Aware Lookup In DITA</title>
+<style>
+:root{--bg:#f7f6f2;--card:#fff;--ink:#1d2327;--mute:#667078;--line:#e3e1d9;--accent:#1a5fb4;--accent-ink:#fff;--ok:#1b7a3d;--warn:#9a5b00;--bad:#b3261e;--chip:#eef3fb;--code:#f1efe8;--shadow:0 1px 2px rgba(0,0,0,.04),0 4px 14px rgba(0,0,0,.04)}
+@media (prefers-color-scheme:dark){:root{--bg:#14171a;--card:#1c2024;--ink:#e8eaec;--mute:#9aa4ab;--line:#2c3237;--accent:#7db0ff;--accent-ink:#0b1626;--ok:#6fd08c;--warn:#f0b35a;--bad:#ff8a80;--chip:#202a38;--code:#23282d;--shadow:none}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:860px;margin:0 auto;padding:28px 16px 80px}
+h1{font-size:1.5rem;margin:0}h1 span{font-weight:400;color:var(--mute);font-size:1rem;margin-left:.5rem}
+.sub{color:var(--mute);margin:.25rem 0 1.25rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow);margin-top:14px}
+form{display:flex;gap:8px;flex-wrap:wrap}
+textarea{flex:1 1 320px;min-height:54px;resize:vertical;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}
+textarea:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+button{font:inherit;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);padding:9px 14px;cursor:pointer}
+button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600;align-self:flex-start;min-height:44px}
+button:disabled{opacity:.55;cursor:wait}
+.eg{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}.eg button{font-size:.85rem;padding:5px 10px;background:var(--chip);border-color:transparent;color:var(--ink)}
+.meta{color:var(--mute);font-size:.85rem;margin-top:8px}
+.badge{display:inline-block;border-radius:999px;padding:1px 10px;font-size:.78rem;font-weight:600;background:var(--chip);margin:0 6px 4px 0}
+.badge.ok{color:var(--ok)}.badge.warn{color:var(--warn)}.badge.bad{color:var(--bad)}
+.lead{font-size:1.08rem;margin:.2rem 0 .8rem}
+.step{border-top:1px solid var(--line);padding:10px 0}
+.step:first-of-type{border-top:0}
+pre{background:var(--code);padding:8px 10px;border-radius:8px;overflow:auto;margin:6px 0;font-size:.88rem}
+.cite{font-size:.85rem;color:var(--mute)}.cite a{color:var(--accent)}
+.note{font-size:.88rem;color:var(--mute);margin-top:8px}
+.gap{border-left:3px solid var(--warn);padding:2px 10px;margin-top:10px;font-size:.92rem}
+h2{font-size:1rem;margin:0 0 4px}
+details.reason{margin-top:14px}
+details.reason>summary{cursor:pointer;font-weight:600;padding:12px 16px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+details.reason[open]>summary{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.tl{border:1px solid var(--line);border-top:0;border-radius:0 0 12px 12px;background:var(--card);padding:6px 16px 12px}
+.ts{padding:10px 0 10px 14px;border-left:2px solid var(--line);margin-left:4px;position:relative}
+.ts::before{content:"";position:absolute;left:-6px;top:16px;width:10px;height:10px;border-radius:50%;background:var(--accent)}
+.ts h3{font-size:.95rem;margin:0;display:flex;justify-content:space-between;gap:8px}.ts h3 small{color:var(--mute);font-weight:400}
+.ts p{margin:.25rem 0;font-size:.9rem}
+table{width:100%;border-collapse:collapse;font-size:.8rem;margin:6px 0}th,td{text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-weight:600}
+td.id{word-break:break-all}
+.pick{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.err{color:var(--bad)}
+@media (max-width:520px){h1 span{display:block;margin:0}}
+input#code{width:100%;max-width:260px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}input#code:focus{outline:2px solid var(--accent);outline-offset:1px}[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <h1>VALID <span>Version-Aware Lookup In DITA</span></h1>
+  <p class="sub">Ask about Cloud TPU. Answers come only from the documentation for the generation you mean, and every answer shows its reasoning.</p>
+
+  <form id="f" class="card">
+    <textarea id="q" placeholder="e.g. I'm on Ironwood. Which machine type do I use?" aria-label="Your question" maxlength="400"></textarea>
+    <button class="primary" id="go" type="submit">Ask</button>
+    <div id="codeRow" hidden style="flex-basis:100%"><input id="code" type="password" autocomplete="off" placeholder="Access code" aria-label="Access code"></div>
+    <div style="flex-basis:100%"><div class="eg" id="eg"></div><div class="meta" id="left"></div></div>
+  </form>
+
+  <div id="out"></div>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+let CFG = null;
+const EXAMPLES = [
+  "I'm on Ironwood. Which machine type do I use?",
+  "Compare chips per host for v5p and TPU v6e",
+  "How much HBM does v5e have per chip?",
+  "On v5e, what is the capital of France?"
+];
+
+function el(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) {
+    if (k === "class") e.className = v; else if (k === "on") for (const [ev, fn] of Object.entries(v)) e.addEventListener(ev, fn); else e.setAttribute(k, v);
+  }
+  for (const k of kids.flat(Infinity)) if (k != null && k !== false) e.append(k.nodeType ? k : document.createTextNode(String(k)));
+  return e;
+}
+const gname = (k) => (CFG.generations.find((g) => g.key === k) || {}).name || k;
+const badge = (txt, kind) => el("span", {class: "badge " + (kind || "")}, txt);
+
+function saved(k, v) {
+  try { if (v === undefined) return sessionStorage.getItem(k) || ""; v ? sessionStorage.setItem(k, v) : sessionStorage.removeItem(k); } catch (e) {}
+  return "";
+}
+function readHash() {
+  const m = /[#&]code=([^&]+)/.exec(location.hash);
+  if (m) { $("code").value = decodeURIComponent(m[1]); saved("code", $("code").value); history.replaceState(null, "", location.pathname + location.search); }
+  else $("code").value = saved("code");
+}
+
+async function init() {
+  readHash();
+  for (const t of EXAMPLES) $("eg").append(el("button", {type: "button", on: {click: () => { $("q").value = t; $("q").focus(); }}}, t));
+  try {
+    CFG = await (await fetch("/api/config")).json();
+    $("q").maxLength = CFG.max_chars;
+    $("codeRow").hidden = !CFG.needs_code;
+    showLeft(CFG.left_today);
+  } catch (e) { CFG = {generations: [], corpus_base: ""}; $("left").textContent = "Could not reach the server."; }
+}
+function showLeft(n) { if (n != null) $("left").textContent = `${n} of ${CFG.daily_cap || 50} demo questions left today (resets 00:00 UTC). Free-tier model: a reply can take 5–30 seconds.`; }
+
+async function ask(question, generations) {
+  const out = $("out");
+  $("go").disabled = true;
+  out.replaceChildren(el("div", {class: "card", role: "status"}, "Working: scoping the question, searching, drafting and checking…"));
+  try {
+    const res = await fetch("/api/ask", {method: "POST", headers: {"Content-Type": "application/json", "X-Access-Code": $("code").value.trim()},
+                                         body: JSON.stringify({question, generations: generations || null})});
+    const data = await res.json();
+    if (!res.ok) { out.replaceChildren(el("div", {class: "card err", role: "alert"}, data.detail || "Something went wrong.")); if (data.left_today != null) showLeft(data.left_today); return; }
+    saved("code", $("code").value.trim());
+    showLeft(data.left_today);
+    render(data, question);
+  } catch (e) {
+    out.replaceChildren(el("div", {class: "card err", role: "alert"}, "Could not reach the server. Try again."));
+  } finally { $("go").disabled = false; }
+}
+
+function link(src) {
+  const label = `${src.heading} — ${src.path}:${src.line}`;
+  return el("a", {href: `${CFG.corpus_base}/${src.path}#L${src.line}`, target: "_blank", rel: "noopener noreferrer"}, label);
+}
+
+function render(r, question) {
+  const out = $("out"), nodes = [];
+  const scopeLine = r.scope && r.scope.length ? el("div", {class: "meta"}, "Scope: ", r.scope.map((g) => badge(gname(g)))) : null;
+
+  if (r.outcome === "answer") {
+    const a = r.answer;
+    nodes.push(el("div", {class: "card"},
+      el("div", {}, badge("Answered", "ok"), badge("Checked: " + a.checks.citations_in_scope + " citations in scope, " + a.checks.values_grounded + " values grounded", "ok")),
+      scopeLine, el("p", {class: "lead"}, a.text),
+      a.steps.map((s) => el("div", {class: "step"},
+        el("div", {}, badge(gname(s.generation)), s.text),
+        s.command ? el("pre", {}, s.command) : null,
+        el("div", {class: "cite"}, "Source: ", link(s.source)))),
+      a.gaps ? el("div", {class: "gap"}, el("strong", {}, "Not documented: "), a.gaps) : null,
+      el("div", {class: "note"}, a.not_used)));
+  } else if (r.outcome === "ask") {
+    nodes.push(el("div", {class: "card"}, el("div", {}, badge("Need one detail", "warn")),
+      el("p", {class: "lead"}, r.ask.message),
+      el("div", {class: "pick"}, r.ask.options.map((o) => el("button", {type: "button", on: {click: () => ask(question, [o.key])}}, o.name))),
+      el("div", {class: "note"}, "VALID never guesses the generation. Pick one, or name it in your question (you can pick several by asking about each).")));
+  } else if (r.outcome === "refuse") {
+    nodes.push(el("div", {class: "card"}, el("div", {}, badge("Declined, by design", "warn")), scopeLine,
+      el("p", {class: "lead"}, r.refusal.reason),
+      r.refusal.missing ? el("div", {class: "gap"}, el("strong", {}, "What is missing: "), r.refusal.missing) : null,
+      el("div", {class: "note"}, "Declining is a designed outcome: VALID would rather say nothing than state something the in-scope documentation does not support.")));
+  } else {
+    nodes.push(el("div", {class: "card"}, el("div", {}, badge("Model busy", "bad")),
+      el("p", {class: "lead"}, r.error.reason), el("div", {class: "note"}, r.error.action),
+      el("div", {class: "pick"}, el("button", {type: "button", on: {click: () => ask(question, r.scope && r.scope.length ? r.scope : null)}}, "Try again"))));
+  }
+  nodes.push(reasoning(r));
+  out.replaceChildren(...nodes);
+}
+
+function reasoning(r) {
+  const tl = el("div", {class: "tl"});
+  for (const t of r.trace) tl.append(traceStep(t));
+  const run = r.run || {};
+  tl.append(el("div", {class: "meta"}, `Total ${(run.ms / 1000).toFixed(1)} s · model ${run.model} · ${run.calls} model call(s) · ${run.tokens_in} tokens in, ${run.tokens_out} out · cost on the free tier: $0 (would be about $${run.est_cost_usd_if_paid} if billed)`));
+  return el("details", {class: "reason", open: ""}, el("summary", {}, "How VALID got here (the reasoning)"), tl);
+}
+
+function traceStep(t) {
+  const d = t.detail || {};
+  const head = el("h3", {}, t.step, el("small", {}, t.ms + " ms"));
+  const body = [];
+  if (t.step === "Decide the scope") {
+    body.push(el("p", {}, d.scope ? ["Scope fixed to: ", d.scope.map((g) => badge(gname(g)))] : "No generation found in the question."));
+    if (d["matched words"]) body.push(el("p", {}, "Matched: ", d["matched words"].map((m) => badge(`“${m[0]}” → ${m[1]}`))));
+    body.push(el("p", {class: "meta"}, "Decided by matching the subject scheme in the documentation. No model was asked to decide scope."));
+  } else if (t.step === "Search inside the scope") {
+    body.push(el("p", {}, "Filter applied before any search: ", el("code", {}, d.filter)));
+    body.push(el("p", {}, `Best vector distance ${d["best vector distance"]} (refuse above ${d["refusal floor"]}). Chunks are ranked by meaning and by keywords, then fused.`));
+    for (const [g, hits] of Object.entries(d.retrieved || {})) {
+      body.push(el("p", {}, el("strong", {}, gname(g))));
+      body.push(el("table", {}, el("thead", {}, el("tr", {}, ["Chunk", "Meaning rank (distance)", "Keyword rank", "Fused"].map((h) => el("th", {}, h)))),
+        el("tbody", {}, hits.map((h) => el("tr", {}, el("td", {class: "id"}, h.id), el("td", {}, h.vector ? `${h.vector.rank} (${h.vector.distance})` : "–"),
+          el("td", {}, h.keyword_rank == null ? "–" : h.keyword_rank), el("td", {}, h.fused_score))))));
+    }
+  } else if (t.step.startsWith("Gemini call")) {
+    if (d.error) body.push(el("p", {class: "err"}, d.error));
+    else body.push(el("p", {}, `Answering model: ${d.model}. It judged the question ${d.answerable ? "answerable" : "not answerable"} from the chunks, with ${d["steps drafted"]} step(s) drafted. Its output was limited to the retrieved chunk ids.`));
+    if (d.attempts) body.push(el("p", {class: "meta"}, d.attempts.map((a) => `${a.model}: ${a.result.slice(0, 40)}${a.ms ? " (" + a.ms + " ms)" : ""}`).join("  ·  ")));
+  } else if (t.step === "Check the answer") {
+    body.push(el("p", {}, badge(d.passed ? "Passed" : "Failed", d.passed ? "ok" : "bad"),
+      `citations in scope ${d.citations_in_scope}, values grounded ${d.values_grounded}, out-of-scope values ${d.out_of_scope_values}`));
+    if (d.failed) for (const f of d.failed) body.push(el("p", {class: "err"}, f.reason || JSON.stringify(f)));
+    body.push(el("p", {class: "meta"}, "Plain code, not the model: every cited chunk must be in scope, and every command, flag, number and identifier in the answer must appear in the chunk it cites."));
+  } else {
+    body.push(el("pre", {}, JSON.stringify(d, null, 1)));
+  }
+  return el("div", {class: "ts"}, head, ...body);
+}
+
+$("f").addEventListener("submit", (ev) => { ev.preventDefault(); const q = $("q").value.trim(); if (q.length >= 3) ask(q); });
+$("q").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) $("f").requestSubmit(); });
+init();
+</script>
+</body>
+</html>

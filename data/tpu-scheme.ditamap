@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE subjectScheme PUBLIC "-//OASIS//DTD DITA Subject Scheme Map//EN" "subjectScheme.dtd">
+<!-- Controlled values for @platform and @audience, plus the subject taxonomy KnowledgeFlow and VALID read. -->
+<subjectScheme id="tpu-scheme">
+  <title>Cloud TPU subject scheme</title>
+  <subjectdef keys="tpu-generations"><topicmeta><navtitle>TPU generations</navtitle></topicmeta>
+    <subjectdef keys="v5e"><topicmeta><navtitle>TPU v5e</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="v5p"><topicmeta><navtitle>TPU v5p</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="v6e"><topicmeta><navtitle>TPU v6e (Trillium)</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="tpu7x"><topicmeta><navtitle>TPU7x (Ironwood)</navtitle></topicmeta></subjectdef>
+  </subjectdef>
+  <subjectdef keys="readers"><topicmeta><navtitle>Readers</navtitle></topicmeta>
+    <subjectdef keys="ml-engineer"><topicmeta><navtitle>ML engineer</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="network-sre"><topicmeta><navtitle>Network SRE</navtitle></topicmeta></subjectdef>
+  </subjectdef>
+  <subjectdef keys="subjects"><topicmeta><navtitle>Subjects</navtitle></topicmeta>
+    <subjectdef keys="hardware"><topicmeta><navtitle>Hardware and specifications</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="memory"><topicmeta><navtitle>Memory</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="topology"><topicmeta><navtitle>Topology and slices</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="networking"><topicmeta><navtitle>Networking</navtitle></topicmeta>
+      <subjectdef keys="egress"><topicmeta><navtitle>Outbound internet access</navtitle></topicmeta></subjectdef>
+    </subjectdef>
+    <subjectdef keys="provisioning"><topicmeta><navtitle>Provisioning</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="software"><topicmeta><navtitle>Software versions</navtitle></topicmeta></subjectdef>
+    <subjectdef keys="optics"><topicmeta><navtitle>Optics and transceivers</navtitle></topicmeta></subjectdef>
+  </subjectdef>
+  <enumerationdef><attributedef name="platform"/><subjectdef keyref="tpu-generations"/></enumerationdef>
+  <enumerationdef><attributedef name="audience"/><subjectdef keyref="readers"/></enumerationdef>
+</subjectScheme>

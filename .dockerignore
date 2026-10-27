@@ -1,0 +1,10 @@
+.git
+.venv
+build
+__pycache__
+*.pyc
+scripts
+index.html
+README.md
+PROGRESS.md
+.env
