@@ -1,0 +1,8 @@
+{
+ "16x16x24": "v5p",
+ "ct5p-hightpu-4t": "v5p",
+ "tpu7x-standard-4t": "tpu7x",
+ "v2-alpha-tpuv5": "v5p",
+ "v2-alpha-tpuv5-lite": "v5e",
+ "v2-alpha-tpuv6e": "v6e"
+}

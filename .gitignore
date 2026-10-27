@@ -6,3 +6,9 @@ backend/chroma_db/
 build/service/venv/
 .firebase/
 firebase-debug.log
+
+.venv/
+build/
+__pycache__/
+*.pyc
+.env
