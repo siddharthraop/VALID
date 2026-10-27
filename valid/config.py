@@ -26,3 +26,8 @@ COLLECTION = os.environ.get("VALID_COLLECTION", "chunks")
 RETRIEVE_K = int(os.environ.get("VALID_K", "6"))                    # chunks per generation sent to the model
 MAX_DISTANCE = float(os.environ.get("VALID_MAX_DISTANCE", "0.40"))  # best cosine distance above this: refuse
 MAX_REVISIONS = 2                                                   # design 5.5
+
+# Resilience on the free tier (Gemini returns 503 "high demand" at busy times)
+FALLBACK_MODEL = os.environ.get("VALID_FALLBACK_MODEL", "gemini-3.7-flash")  # tried once if the main model is busy
+THINKING_LEVEL = os.environ.get("VALID_THINKING", "LOW")                     # MINIMAL | LOW | MEDIUM | HIGH
+CALL_TIMEOUT_S = int(os.environ.get("VALID_CALL_TIMEOUT", "30"))             # per Gemini call, no hidden retries

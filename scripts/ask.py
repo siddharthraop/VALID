@@ -32,6 +32,8 @@ def main() -> int:
                 print(f"      $ {s['command']}")
             print(f"      cite: {s['source']['id']}  ({s['source']['path']}:{s['source']['line']})")
         print(f"\nchecks: {a['checks']}\n{a['not_used']}")
+    elif r["outcome"] == "unavailable":
+        print(r["error"]["reason"], r["error"]["action"])
     elif r["outcome"] == "ask":
         print(r["ask"]["message"], [o["key"] for o in r["ask"]["options"]])
     else:

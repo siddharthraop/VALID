@@ -138,5 +138,52 @@ try:
 except ValueError:
     expect("unknown generation rejected", True)
 
+# ---- model busy: fallback and graceful failure
+from google.genai import errors as gerrors
+from valid import answer as answer_mod, gemini as gemini_mod
+
+
+class FakeResp:
+    text = '{"answerable": true, "answer": "x", "steps": []}'
+    usage_metadata = type("U", (), {"prompt_token_count": 10, "candidates_token_count": 5, "thoughts_token_count": 0})()
+
+
+class FakeModels:
+    def __init__(self, busy):
+        self.busy, self.calls = busy, []
+
+    def generate_content(self, model, contents, config):
+        self.calls.append(model)
+        if model in self.busy:
+            raise gerrors.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+        return FakeResp()
+
+
+def with_fake(busy):
+    fm = FakeModels(busy)
+    gemini_mod._client = type("C", (), {"models": fm})()
+    return fm
+
+
+hits = fake_search()("q", ["tpu7x"], None, None, None)
+fm = with_fake({config.ANSWER_MODEL})
+ans, usage = answer_mod.generate_answer("q", ["tpu7x"], hits)
+expect("main model busy: falls back and reports which model answered", usage["model"] == config.FALLBACK_MODEL and len(fm.calls) == 2, fm.calls)
+with_fake({config.ANSWER_MODEL, config.FALLBACK_MODEL})
+try:
+    answer_mod.generate_answer("q", ["tpu7x"], hits)
+    expect("both models busy: raises ModelUnavailable", False)
+except answer_mod.ModelUnavailable:
+    expect("both models busy: raises ModelUnavailable", True)
+
+
+def busy_gen(*a, **k):
+    raise answer_mod.ModelUnavailable("503")
+
+
+r = agent(busy_gen).ask("Ironwood version?")
+expect("both models busy: graceful outcome, no crash", r["outcome"] == "unavailable" and "busy" in r["error"]["reason"])
+gemini_mod._client = None
+
 print("agent checks passed" if not bad else f"{bad} FAILED")
 sys.exit(1 if bad else 0)

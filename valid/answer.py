@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from google.genai import types
+from google.genai import errors, types
 
 from . import config, gemini
 from .retrieve import Hit
@@ -56,19 +56,51 @@ def build_prompt(question: str, scope: list[str], hits: dict[str, list[Hit]],
     return "\n".join(parts)
 
 
+class ModelUnavailable(Exception):
+    """Every model we are allowed to use was busy, rate-limited or unreachable."""
+
+
+def _call(model: str, contents: str, schema: dict, thinking: bool):
+    cfg = types.GenerateContentConfig(
+        system_instruction=SYSTEM, response_mime_type="application/json", response_json_schema=schema,
+        http_options=gemini.http_options(config.CALL_TIMEOUT_S),
+        thinking_config=types.ThinkingConfig(thinking_level=config.THINKING_LEVEL) if thinking else None)
+    return gemini.client().models.generate_content(model=model, contents=contents, config=cfg)
+
+
 def generate_answer(question: str, scope: list[str], hits: dict[str, list[Hit]],
                     prior: dict | None = None, failures: list[dict] | None = None) -> tuple[dict, dict]:
-    """Returns (answer_json, usage). Raises ValueError if the model returns something that is not JSON."""
+    """Returns (answer_json, usage). Tries the main model, then the fallback if it is busy.
+    Raises ModelUnavailable if both are, and ValueError if the model returns something that is not JSON."""
     ids = sorted({h.id for g in scope for h in hits[g]})
-    cfg = types.GenerateContentConfig(system_instruction=SYSTEM, response_mime_type="application/json",
-                                      response_json_schema=build_schema(scope, ids))
-    resp = gemini.client().models.generate_content(
-        model=config.ANSWER_MODEL, contents=build_prompt(question, scope, hits, prior, failures), config=cfg)
-    u = resp.usage_metadata
-    out_tok = (getattr(u, "candidates_token_count", None) or getattr(u, "response_token_count", None) or 0) \
-        + (getattr(u, "thoughts_token_count", None) or 0)
-    usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok}
-    try:
-        return json.loads(resp.text), usage
-    except (ValueError, TypeError) as e:
-        raise ValueError(f"model did not return valid JSON: {e}") from e
+    schema = build_schema(scope, ids)
+    contents = build_prompt(question, scope, hits, prior, failures)
+    last: Exception | None = None
+    for model in dict.fromkeys([config.ANSWER_MODEL, config.FALLBACK_MODEL]):
+        thinking = bool(config.THINKING_LEVEL)
+        for _ in range(2):
+            try:
+                resp = _call(model, contents, schema, thinking)
+                break
+            except Exception as e:
+                if thinking and isinstance(e, errors.APIError) and e.code == 400 and "think" in str(e).lower():
+                    thinking = False                       # this model does not take a thinking level: retry without
+                    continue
+                if gemini.is_transient(e):
+                    last = e
+                    resp = None
+                    break
+                raise
+        else:
+            resp = None
+        if resp is None:
+            continue
+        u = resp.usage_metadata
+        out_tok = (getattr(u, "candidates_token_count", None) or getattr(u, "response_token_count", None) or 0) \
+            + (getattr(u, "thoughts_token_count", None) or 0)
+        usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok, "model": model}
+        try:
+            return json.loads(resp.text), usage
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"model did not return valid JSON: {e}") from e
+    raise ModelUnavailable(f"{type(last).__name__}: {str(last)[:160]}" if last else "no model available")

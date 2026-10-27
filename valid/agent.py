@@ -9,7 +9,7 @@ from __future__ import annotations
 import time
 
 from . import config
-from .answer import generate_answer
+from .answer import ModelUnavailable, generate_answer
 from .checks import check_answer
 from .retrieve import Corpus, Hit, retrieve_in_scope
 from .scheme import Scheme
@@ -78,6 +78,12 @@ class Agent:
             t = time.time()
             try:
                 ans, usage = self.generator(question, scope, hits, prior, failures)
+            except ModelUnavailable as e:
+                step(f"Gemini call {attempt + 1}", {"error": str(e), "tried": [config.ANSWER_MODEL, config.FALLBACK_MODEL]}, t)
+                run["calls"] += 1
+                return done("unavailable", error={
+                    "reason": "The answer model is busy right now (free-tier capacity). Nothing was answered.",
+                    "action": "Try again in a minute."})
             except ValueError as e:
                 step(f"Gemini call {attempt + 1}", {"error": str(e)}, t)
                 prior, failures = None, [{"step": -1, "reason": str(e)}]
@@ -86,6 +92,7 @@ class Agent:
             run["calls"] += 1
             run["tokens_in"] += usage["tokens_in"]
             run["tokens_out"] += usage["tokens_out"]
+            run["model"] = usage.get("model", run["model"])
             step(f"Gemini call {attempt + 1}" + (" (revision)" if attempt else ""),
                  {"answerable": ans.get("answerable"), "steps drafted": len(ans.get("steps") or [])}, t)
 
