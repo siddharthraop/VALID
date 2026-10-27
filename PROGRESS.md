@@ -34,4 +34,4 @@ Cloud Run service `valid` (us-central1), private by access code. Free tier throu
 - Automatic index build on corpus change (GitHub Actions)
 
 ## Working rules
-Free tier only; keep a budget alert; never put the Gemini key or access code in a file; run `git diff --cached | grep -c AIza` before each commit.
+Free tier only; keep a budget alert; never put the Gemini key or access code in a file; before each commit, search the staged changes for a Google key pattern (see the check in the project notes).
