@@ -20,6 +20,7 @@ Rules:
 - Put a command in the "command" field only if the cited chunk contains that exact command; otherwise leave it out.
 - If a chunk says something is not supported or that nothing is listed for the reader's generation, that is the answer: say so.
 - If the chunks do not answer the question, set answerable to false, leave steps empty, and say in "missing" what the documentation does not provide.
+- If the chunks answer for some of the named generations but not others, set answerable to true, give steps only for the generations they cover, and say in "missing" what is not documented for the others.
 - Answer only for the generations named in the question. When the question names two generations, give separate steps for each, labelled with the generation field.
 - Do not mention or compare other generations. Keep the answer short: at most six steps."""
 
@@ -83,43 +84,54 @@ def _skippable(e: Exception) -> bool:
 
 def generate_answer(question: str, scope: list[str], hits: dict[str, list[Hit]],
                     prior: dict | None = None, failures: list[dict] | None = None) -> tuple[dict, dict]:
-    """Returns (answer_json, usage). Walks the model chain. Raises ModelUnavailable if every model fails,
-    and ValueError if a model returns something that is not JSON."""
+    """Returns (answer_json, usage). Walks the model chain; after a pass where models failed fast (503/429)
+    it waits 3 s and retries those once. Raises ModelUnavailable if every model fails, and ValueError if a
+    model returns something that is not JSON."""
     ids = sorted({h.id for g in scope for h in hits[g]})
     schema = build_schema(scope, ids)
     contents = build_prompt(question, scope, hits, prior, failures)
     now = time.time()
-    chain = [m for m in config.MODEL_CHAIN if _down.get(m, 0) <= now] or list(config.MODEL_CHAIN)
-    attempts = [{"model": m, "result": "skipped: failed a moment ago"} for m in config.MODEL_CHAIN if m not in chain]
+    pending = [m for m in config.MODEL_CHAIN if _down.get(m, 0) <= now] or list(config.MODEL_CHAIN)
+    attempts = [{"model": m, "result": "skipped: failed a moment ago"} for m in config.MODEL_CHAIN if m not in pending]
     last: Exception | None = None
-    for model in chain:
-        timeout = config.FIRST_TIMEOUT_S if model == config.MODEL_CHAIN[0] else config.CALL_TIMEOUT_S
-        thinking, resp, t = bool(config.THINKING_LEVEL), None, time.time()
-        for _ in range(2):
-            try:
-                resp = _call(model, contents, schema, thinking, timeout)
-                break
-            except Exception as e:
-                if thinking and isinstance(e, errors.APIError) and e.code == 400 and "think" in str(e).lower():
-                    thinking = False                       # this model does not take a thinking level: retry without
-                    continue
-                if _skippable(e):
-                    last = e
+    for pass_no in range(2):
+        quick: list[str] = []
+        for model in pending:
+            timeout = config.FIRST_TIMEOUT_S if model == config.MODEL_CHAIN[0] else config.CALL_TIMEOUT_S
+            thinking, resp, t = bool(config.THINKING_LEVEL), None, time.time()
+            for _ in range(2):
+                try:
+                    resp = _call(model, contents, schema, thinking, timeout)
                     break
-                raise
-        ms = int((time.time() - t) * 1000)
-        if resp is None:
-            _down[model] = time.time() + config.COOLDOWN_S
-            attempts.append({"model": model, "result": f"{type(last).__name__}: {str(last)[:70]}", "ms": ms})
+                except Exception as e:
+                    if thinking and isinstance(e, errors.APIError) and e.code == 400 and "think" in str(e).lower():
+                        thinking = False                   # this model does not take a thinking level: retry without
+                        continue
+                    if _skippable(e):
+                        last = e
+                        break
+                    raise
+            ms = int((time.time() - t) * 1000)
+            if resp is None:
+                _down[model] = time.time() + config.COOLDOWN_S
+                attempts.append({"model": model, "result": f"{type(last).__name__}: {str(last)[:70]}", "ms": ms})
+                if isinstance(last, errors.APIError) and last.code in (429, 503):
+                    quick.append(model)                    # a fast "busy" answer, not a timeout: worth one more try
+                continue
+            _down.pop(model, None)
+            attempts.append({"model": model, "result": "ok", "ms": ms})
+            u = resp.usage_metadata
+            out_tok = (getattr(u, "candidates_token_count", None) or getattr(u, "response_token_count", None) or 0) \
+                + (getattr(u, "thoughts_token_count", None) or 0)
+            usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok,
+                     "model": model, "attempts": attempts}
+            try:
+                return json.loads(resp.text), usage
+            except (ValueError, TypeError) as e:
+                raise ValueError(f"model did not return valid JSON: {e}") from e
+        if pass_no == 0 and quick:
+            time.sleep(3)
+            pending = quick
             continue
-        attempts.append({"model": model, "result": "ok", "ms": ms})
-        u = resp.usage_metadata
-        out_tok = (getattr(u, "candidates_token_count", None) or getattr(u, "response_token_count", None) or 0) \
-            + (getattr(u, "thoughts_token_count", None) or 0)
-        usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok,
-                 "model": model, "attempts": attempts}
-        try:
-            return json.loads(resp.text), usage
-        except (ValueError, TypeError) as e:
-            raise ValueError(f"model did not return valid JSON: {e}") from e
+        break
     raise ModelUnavailable(f"{type(last).__name__}: {str(last)[:160]}" if last else "no model available", attempts)

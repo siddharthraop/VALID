@@ -30,7 +30,7 @@ MAX_REVISIONS = 2                                                   # design 5.5
 # Resilience on the free tier (Gemini returns 503 "high demand" at busy times)
 FALLBACK_MODEL = os.environ.get("VALID_FALLBACK_MODEL", "gemini-3.7-flash")  # tried once if the main model is busy
 THINKING_LEVEL = os.environ.get("VALID_THINKING", "LOW")                     # MINIMAL | LOW | MEDIUM | HIGH
-CALL_TIMEOUT_S = int(os.environ.get("VALID_CALL_TIMEOUT", "30"))             # per Gemini call, no hidden retries
+CALL_TIMEOUT_S = int(os.environ.get("VALID_CALL_TIMEOUT", "20"))             # per Gemini call, no hidden retries
 
 # Model chain: tried in order. A model that just failed is skipped for COOLDOWN_S, so a dead model costs one slow call, not every call.
 FALLBACK_MODEL = os.environ.get("VALID_FALLBACK_MODEL", "gemini-3.6-flash")

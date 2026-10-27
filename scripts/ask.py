@@ -31,6 +31,8 @@ def main() -> int:
             if s.get("command"):
                 print(f"      $ {s['command']}")
             print(f"      cite: {s['source']['id']}  ({s['source']['path']}:{s['source']['line']})")
+        if a.get("gaps"):
+            print(f"\nnot documented: {a['gaps']}")
         print(f"\nchecks: {a['checks']}\n{a['not_used']}")
     elif r["outcome"] == "unavailable":
         print(r["error"]["reason"], r["error"]["action"])

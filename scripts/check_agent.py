@@ -192,5 +192,49 @@ expect("both models busy: graceful outcome, no crash", r["outcome"] == "unavaila
 answer_mod._down.clear()
 gemini_mod._client = None
 
+# ---- quick retry pass and partial answers
+answer_mod.time.sleep = lambda s_: None
+
+
+class FlakyModels(FakeModels):
+    """Each model answers 503 on its first call, then works."""
+    def generate_content(self, model, contents, config):
+        first = model not in self.calls
+        self.calls.append(model)
+        if first:
+            raise gerrors.ServerError(503, {"error": {"code": 503, "message": "high demand", "status": "UNAVAILABLE"}})
+        return FakeResp()
+
+
+answer_mod._down.clear()
+fm = FlakyModels(set())
+gemini_mod._client = type("C", (), {"models": fm})()
+ans, usage = answer_mod.generate_answer("q", ["tpu7x"], hits)
+expect("every model busy for a moment: a quick second pass rescues the question", usage["model"] == config.ANSWER_MODEL and len(fm.calls) == len(config.MODEL_CHAIN) + 1, fm.calls)
+
+
+class SlowModels(FakeModels):
+    def generate_content(self, model, contents, config):
+        self.calls.append(model)
+        raise gerrors.ServerError(504, {"error": {"code": 504, "message": "deadline", "status": "DEADLINE_EXCEEDED"}})
+
+
+answer_mod._down.clear()
+fm = SlowModels(set())
+gemini_mod._client = type("C", (), {"models": fm})()
+try:
+    answer_mod.generate_answer("q", ["tpu7x"], hits)
+    expect("timeouts are not retried", False)
+except answer_mod.ModelUnavailable:
+    expect("timeouts are not retried", len(fm.calls) == len(config.MODEL_CHAIN), fm.calls)
+answer_mod._down.clear()
+gemini_mod._client = None
+
+partial = {"answerable": True, "answer": "TPU v6e lists 8 chips per host.", "missing": "The docs do not state chips per host for TPU7x.",
+           "steps": [{"generation": "v6e", "cite": "tpu-v6e-vm-types#vm-types-table", "text": "The largest v6e VM has 8 chips."}]}
+r = agent(scripted(partial)).ask("chips per host", ["tpu7x", "v6e"])
+expect("partial answer: answered for one generation, gap stated for the other",
+       r["outcome"] == "answer" and "TPU7x" in r["answer"]["gaps"], r["outcome"])
+
 print("agent checks passed" if not bad else f"{bad} FAILED")
 sys.exit(1 if bad else 0)

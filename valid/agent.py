@@ -113,7 +113,7 @@ class Agent:
                     steps.append({**s, "source": {"id": c["id"], "heading": c["heading"], "path": c["path"], "line": c["line"]}})
                 others = [self.names[g] for g in self.scheme.keys if g not in scope]
                 return done("answer", answer={
-                    "text": ans["answer"], "steps": steps, "checks": chk.summary(),
+                    "text": ans["answer"], "steps": steps, "checks": chk.summary(), "gaps": ans.get("missing") or None,
                     "not_used": f"Content for {', '.join(others)} was excluded on purpose: out of scope for this question."})
             prior, failures = ans, [f.to_dict() for f in chk.failures]
 
