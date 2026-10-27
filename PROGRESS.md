@@ -20,7 +20,10 @@ Cloud Run service `valid` (us-central1), private by access code. Free tier throu
 - Filter first, then search: pre-filtered vector search plus SQLite FTS5 keyword search, fused (k=60): valid/retrieve.py, valid/bm25.py
 - The model answers, the checks decide: valid/answer.py (structured output, citation enum), valid/checks.py
 - Refusal as a designed outcome, at most 2 revisions: valid/agent.py
-- Portal with reasoning panel, access code, daily cap: valid/web.py, valid/static/index.html
+- Portal with reasoning panel, in-page Help, access code, daily cap: valid/web.py, valid/static/index.html
+
+## Documentation
+User guide and developer guide in docs/; in-page Help in the portal. Update all three when behaviour changes.
 
 ## Known limits (honest)
 - Free-tier Gemini is often busy: replies take 5-30 s and sometimes fail. Fallback chain 3.8 -> 3.6 -> 3.5 with a cooldown and one quick retry. The design's under-5-second median is not met on the free tier.

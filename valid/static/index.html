@@ -45,12 +45,25 @@ td.id{word-break:break-all}
 .err{color:var(--bad)}
 @media (max-width:520px){h1 span{display:block;margin:0}}
 input#code{width:100%;max-width:260px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit}input#code:focus{outline:2px solid var(--accent);outline-offset:1px}[hidden]{display:none!important}
+.top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.ghost{padding:6px 14px;font-size:.9rem}
+.linkbtn{border:0;background:none;color:var(--accent);padding:0 2px;text-decoration:underline;cursor:pointer;font:inherit}
+summary .linkbtn{margin-left:8px;font-weight:400;font-size:.85rem}
+dialog#help{width:calc(100% - 32px);max-width:660px;max-height:86vh;padding:0;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--ink);overflow:hidden}
+dialog#help::backdrop{background:rgba(0,0,0,.45)}
+#help .dhead{display:flex;justify-content:space-between;align-items:center;padding:12px 20px;border-bottom:1px solid var(--line)}
+#help .dhead h2{font-size:1.1rem;margin:0}
+#help .dbody{overflow:auto;max-height:calc(86vh - 58px);padding:4px 20px 20px}
+#help h3{font-size:1rem;margin:18px 0 4px}
+#help p,#help li{font-size:.93rem;margin:.3rem 0}
+#help ul,#help ol{padding-left:1.2rem;margin:.3rem 0}
+.dnav{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0 2px}.dnav button{font-size:.82rem;padding:3px 10px;background:var(--chip);border-color:transparent}
 </style>
 </head>
 <body>
 <main>
-  <h1>VALID <span>Version-Aware Lookup In DITA</span></h1>
-  <p class="sub">Ask about Cloud TPU. Answers come only from the documentation for the generation you mean, and every answer shows its reasoning.</p>
+  <div class="top"><h1>VALID <span>Version-Aware Lookup In DITA</span></h1><button type="button" id="helpBtn" class="ghost" aria-haspopup="dialog">Help</button></div>
+  <p class="sub">Ask about Cloud TPU. Answers come only from the documentation for the generation you mean, and every answer shows its reasoning. New here? <button type="button" class="linkbtn" data-help="h-start">Read the 1-minute guide</button></p>
 
   <form id="f" class="card">
     <textarea id="q" placeholder="e.g. I'm on Ironwood. Which machine type do I use?" aria-label="Your question" maxlength="400"></textarea>
@@ -61,6 +74,55 @@ input#code{width:100%;max-width:260px;padding:8px 12px;border:1px solid var(--li
 
   <div id="out"></div>
 </main>
+<dialog id="help" aria-labelledby="helpTitle">
+  <div class="dhead"><h2 id="helpTitle">Help</h2><button type="button" id="helpClose">Close</button></div>
+  <div class="dbody" id="helpBody">
+    <div class="dnav">
+      <button type="button" data-help="h-start">Quick start</button><button type="button" data-help="h-gen">Naming a generation</button>
+      <button type="button" data-help="h-answer">Reading an answer</button><button type="button" data-help="h-decline">When VALID declines</button>
+      <button type="button" data-help="h-reason">The reasoning panel</button><button type="button" data-help="h-limits">Limits and problems</button>
+    </div>
+    <h3 id="h-start">Quick start</h3>
+    <ol>
+      <li>Type a Cloud TPU question and name the generation: v5e, v5p, v6e (Trillium) or TPU7x (Ironwood).</li>
+      <li>Press <strong>Ask</strong> (or Ctrl/Cmd+Enter). Or click an example question to try it.</li>
+      <li>Read the answer, open its <strong>Source</strong> link, and open <strong>How VALID got here</strong> to see the reasoning.</li>
+    </ol>
+    <p>VALID answers only from the documentation for the generation you mean. If the documentation does not say, it tells you instead of guessing.</p>
+    <h3 id="h-gen">Naming a generation</h3>
+    <ul>
+      <li>Say it: "On v6e, ...". Aliases work too: Trillium means v6e, Ironwood means TPU7x.</li>
+      <li>A machine type that belongs to one generation also counts, for example <code>ct5p-hightpu-4t</code> (v5p).</li>
+      <li>To compare, name both: "Compare chips per host for v5p and TPU v6e".</li>
+      <li>If you name none, VALID asks which one you mean. It never guesses. A bare "v5" is treated as none, because it could be v5e or v5p.</li>
+      <li>Questions are limited to 400 characters, and each one stands alone: VALID does not remember the previous question.</li>
+    </ul>
+    <h3 id="h-answer">Reading an answer</h3>
+    <ul>
+      <li><strong>Badges:</strong> "Answered" and a "Checked" count: how many citations were in scope and how many values matched the cited text.</li>
+      <li><strong>Steps:</strong> one per generation, each with a Source link to the exact documentation line.</li>
+      <li><strong>Not documented:</strong> a yellow-edged note means the documentation answers some of your question, not all of it. It is part of the answer.</li>
+      <li><strong>Excluded on purpose:</strong> the generations VALID did not search, so their content could not leak in.</li>
+    </ul>
+    <h3 id="h-decline">When VALID declines</h3>
+    <p>"Declined, by design" means the documentation for your generation does not support an answer, and VALID would rather say so than guess. It happens when nothing is close enough, when the retrieved passages do not contain the answer, or when a draft failed its checks twice. Try the generation you meant, reword using the documentation's terms, or ask about a different generation.</p>
+    <h3 id="h-reason">The reasoning panel</h3>
+    <ul>
+      <li><strong>Decide the scope:</strong> which generation and which words in your question set it. No AI model decides this.</li>
+      <li><strong>Search inside the scope:</strong> the filter applied before any search, the best distance (VALID declines above 0.40), and the passages found. Meaning rank is closeness in meaning (lower distance is closer), keyword rank is word matching, fused combines the two.</li>
+      <li><strong>Gemini call:</strong> which model drafted the answer and which were tried first. "Skipped" means a busy model is resting for a few minutes.</li>
+      <li><strong>Check the answer:</strong> plain code confirms every citation is in scope and every command, number and identifier appears in the passage it cites.</li>
+    </ul>
+    <h3 id="h-limits">Limits and problems</h3>
+    <ul>
+      <li><strong>Speed:</strong> 2 to 3 seconds when the model is quiet, up to about 35 seconds when it is busy (free tier).</li>
+      <li><strong>Daily limit:</strong> 50 questions a day shared by everyone, resetting at 00:00 UTC. Choosing a generation or a busy model does not use one.</li>
+      <li><strong>"Model busy":</strong> press Try again, or wait a minute.</li>
+      <li><strong>"Access code missing or wrong":</strong> re-enter the code, or reopen your invitation link. Too many wrong codes locks you out for 15 minutes.</li>
+      <li><strong>Coverage:</strong> a small, curated documentation set for four generations. For anything important, follow the Source link: the checks verify values against the cited text, not whether the documentation itself is right.</li>
+    </ul>
+  </div>
+</dialog>
 <script>
 "use strict";
 const $ = (id) => document.getElementById(id);
@@ -166,7 +228,7 @@ function reasoning(r) {
   for (const t of r.trace) tl.append(traceStep(t));
   const run = r.run || {};
   tl.append(el("div", {class: "meta"}, `Total ${(run.ms / 1000).toFixed(1)} s · model ${run.model} · ${run.calls} model call(s) · ${run.tokens_in} tokens in, ${run.tokens_out} out · cost on the free tier: $0 (would be about $${run.est_cost_usd_if_paid} if billed)`));
-  return el("details", {class: "reason", open: ""}, el("summary", {}, "How VALID got here (the reasoning)"), tl);
+  return el("details", {class: "reason", open: ""}, el("summary", {}, "How VALID got here (the reasoning)", el("button", {type: "button", class: "linkbtn", on: {click: (e) => { e.preventDefault(); e.stopPropagation(); openHelp("h-reason"); }}}, "How to read this")), tl);
 }
 
 function traceStep(t) {
@@ -200,6 +262,17 @@ function traceStep(t) {
   }
   return el("div", {class: "ts"}, head, ...body);
 }
+
+const helpEl = $("help");
+function openHelp(id) {
+  if (!helpEl.open) { try { helpEl.showModal(); } catch (e) { helpEl.setAttribute("open", ""); } }
+  const t = id && $(id);
+  if (t) t.scrollIntoView({block: "start"}); else $("helpBody").scrollTop = 0;
+}
+$("helpBtn").addEventListener("click", () => openHelp());
+$("helpClose").addEventListener("click", () => helpEl.close());
+helpEl.addEventListener("click", (ev) => { if (ev.target === helpEl) helpEl.close(); });
+for (const b of document.querySelectorAll("[data-help]")) b.addEventListener("click", () => openHelp(b.dataset.help));
 
 $("f").addEventListener("submit", (ev) => { ev.preventDefault(); const q = $("q").value.trim(); if (q.length >= 3) ask(q); });
 $("q").addEventListener("keydown", (ev) => { if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) $("f").requestSubmit(); });

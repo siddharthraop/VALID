@@ -278,6 +278,11 @@ The design document, diagrams, and code in this repository are licensed under
 the [MIT License](LICENSE). Adapted Google content remains under the Creative
 Commons Attribution 4.0 License.
 
+## Documentation
+
+- [User guide](docs/USER_GUIDE.md): asking questions, reading answers, the reasoning panel, troubleshooting. The portal also has a built-in Help button.
+- [Developer guide](docs/DEVELOPER.md): architecture, data pipeline, configuration, deploy and operate, extending.
+
 ## Run it
 
 Local checks (free, no cloud): `python scripts/check_agent.py`, `python scripts/check_offline.py`, `python scripts/check_web.py`.
