@@ -21,3 +21,8 @@ EMBED_DIM = int(os.environ.get("VALID_EMBED_DIM", "1536"))
 PROJECT_ID = os.environ.get("VALID_PROJECT", "valid-mvp-8425")
 COLLECTION = os.environ.get("VALID_COLLECTION", "chunks")
 # The Gemini key is read from the GEMINI_API_KEY environment variable. It is never stored in a file.
+
+# Retrieval and refusal (calibrated on this corpus with scripts/calibrate.py)
+RETRIEVE_K = int(os.environ.get("VALID_K", "6"))                    # chunks per generation sent to the model
+MAX_DISTANCE = float(os.environ.get("VALID_MAX_DISTANCE", "0.40"))  # best cosine distance above this: refuse
+MAX_REVISIONS = 2                                                   # design 5.5
