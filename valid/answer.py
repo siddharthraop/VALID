@@ -3,6 +3,7 @@ and generation is an enum of the resolved scope, so the model cannot cite a chun
 from __future__ import annotations
 
 import json
+import time
 
 from google.genai import errors, types
 
@@ -57,50 +58,68 @@ def build_prompt(question: str, scope: list[str], hits: dict[str, list[Hit]],
 
 
 class ModelUnavailable(Exception):
-    """Every model we are allowed to use was busy, rate-limited or unreachable."""
+    """Every model in the chain was busy, rate-limited, missing or unreachable."""
+
+    def __init__(self, msg: str, attempts: list[dict] | None = None):
+        super().__init__(msg)
+        self.attempts = attempts or []
 
 
-def _call(model: str, contents: str, schema: dict, thinking: bool):
+_down: dict[str, float] = {}      # model -> time until which it is skipped (it just failed)
+
+
+def _call(model: str, contents: str, schema: dict, thinking: bool, timeout_s: int):
     cfg = types.GenerateContentConfig(
         system_instruction=SYSTEM, response_mime_type="application/json", response_json_schema=schema,
-        http_options=gemini.http_options(config.CALL_TIMEOUT_S),
+        http_options=gemini.http_options(timeout_s),
         thinking_config=types.ThinkingConfig(thinking_level=config.THINKING_LEVEL) if thinking else None)
     return gemini.client().models.generate_content(model=model, contents=contents, config=cfg)
 
 
+def _skippable(e: Exception) -> bool:
+    """Try the next model: busy, rate-limited, unreachable, or this model does not exist for the key."""
+    return gemini.is_transient(e) or (isinstance(e, errors.APIError) and e.code == 404)
+
+
 def generate_answer(question: str, scope: list[str], hits: dict[str, list[Hit]],
                     prior: dict | None = None, failures: list[dict] | None = None) -> tuple[dict, dict]:
-    """Returns (answer_json, usage). Tries the main model, then the fallback if it is busy.
-    Raises ModelUnavailable if both are, and ValueError if the model returns something that is not JSON."""
+    """Returns (answer_json, usage). Walks the model chain. Raises ModelUnavailable if every model fails,
+    and ValueError if a model returns something that is not JSON."""
     ids = sorted({h.id for g in scope for h in hits[g]})
     schema = build_schema(scope, ids)
     contents = build_prompt(question, scope, hits, prior, failures)
+    now = time.time()
+    chain = [m for m in config.MODEL_CHAIN if _down.get(m, 0) <= now] or list(config.MODEL_CHAIN)
+    attempts = [{"model": m, "result": "skipped: failed a moment ago"} for m in config.MODEL_CHAIN if m not in chain]
     last: Exception | None = None
-    for model in dict.fromkeys([config.ANSWER_MODEL, config.FALLBACK_MODEL]):
-        thinking = bool(config.THINKING_LEVEL)
+    for model in chain:
+        timeout = config.FIRST_TIMEOUT_S if model == config.MODEL_CHAIN[0] else config.CALL_TIMEOUT_S
+        thinking, resp, t = bool(config.THINKING_LEVEL), None, time.time()
         for _ in range(2):
             try:
-                resp = _call(model, contents, schema, thinking)
+                resp = _call(model, contents, schema, thinking, timeout)
                 break
             except Exception as e:
                 if thinking and isinstance(e, errors.APIError) and e.code == 400 and "think" in str(e).lower():
                     thinking = False                       # this model does not take a thinking level: retry without
                     continue
-                if gemini.is_transient(e):
+                if _skippable(e):
                     last = e
-                    resp = None
                     break
                 raise
-        else:
-            resp = None
+        ms = int((time.time() - t) * 1000)
         if resp is None:
+            _down[model] = time.time() + config.COOLDOWN_S
+            attempts.append({"model": model, "result": f"{type(last).__name__}: {str(last)[:70]}", "ms": ms})
             continue
+        attempts.append({"model": model, "result": "ok", "ms": ms})
         u = resp.usage_metadata
         out_tok = (getattr(u, "candidates_token_count", None) or getattr(u, "response_token_count", None) or 0) \
             + (getattr(u, "thoughts_token_count", None) or 0)
-        usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok, "model": model}
+        usage = {"tokens_in": getattr(u, "prompt_token_count", 0) or 0, "tokens_out": out_tok,
+                 "model": model, "attempts": attempts}
         try:
             return json.loads(resp.text), usage
         except (ValueError, TypeError) as e:
             raise ValueError(f"model did not return valid JSON: {e}") from e
-    raise ModelUnavailable(f"{type(last).__name__}: {str(last)[:160]}" if last else "no model available")
+    raise ModelUnavailable(f"{type(last).__name__}: {str(last)[:160]}" if last else "no model available", attempts)

@@ -39,6 +39,10 @@ def main() -> int:
     else:
         print(r["refusal"]["reason"], "\n  missing:", r["refusal"]["missing"])
     print(f"\nrun: {r['run']}")
+    for t in r["trace"]:
+        att = t["detail"].get("attempts") if isinstance(t["detail"], dict) else None
+        if att:
+            print("models: " + "; ".join(f"{a['model']} {a['result']}" + (f" {a['ms']}ms" if 'ms' in a else "") for a in att))
     if "--trace" in sys.argv:
         print(json.dumps(r["trace"], indent=1))
     return 0

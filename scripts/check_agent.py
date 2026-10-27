@@ -166,10 +166,16 @@ def with_fake(busy):
 
 
 hits = fake_search()("q", ["tpu7x"], None, None, None)
+answer_mod._down.clear()
 fm = with_fake({config.ANSWER_MODEL})
 ans, usage = answer_mod.generate_answer("q", ["tpu7x"], hits)
 expect("main model busy: falls back and reports which model answered", usage["model"] == config.FALLBACK_MODEL and len(fm.calls) == 2, fm.calls)
-with_fake({config.ANSWER_MODEL, config.FALLBACK_MODEL})
+fm = with_fake(set())
+ans, usage = answer_mod.generate_answer("q", ["tpu7x"], hits)
+expect("a model that just failed is skipped (cooldown)", fm.calls == [config.FALLBACK_MODEL], fm.calls)
+expect("the skip is visible in the attempts list", any("skipped" in a["result"] for a in usage["attempts"]))
+answer_mod._down.clear()
+with_fake(set(config.MODEL_CHAIN))
 try:
     answer_mod.generate_answer("q", ["tpu7x"], hits)
     expect("both models busy: raises ModelUnavailable", False)
@@ -183,6 +189,7 @@ def busy_gen(*a, **k):
 
 r = agent(busy_gen).ask("Ironwood version?")
 expect("both models busy: graceful outcome, no crash", r["outcome"] == "unavailable" and "busy" in r["error"]["reason"])
+answer_mod._down.clear()
 gemini_mod._client = None
 
 print("agent checks passed" if not bad else f"{bad} FAILED")

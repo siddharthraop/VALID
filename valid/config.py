@@ -31,3 +31,10 @@ MAX_REVISIONS = 2                                                   # design 5.5
 FALLBACK_MODEL = os.environ.get("VALID_FALLBACK_MODEL", "gemini-3.7-flash")  # tried once if the main model is busy
 THINKING_LEVEL = os.environ.get("VALID_THINKING", "LOW")                     # MINIMAL | LOW | MEDIUM | HIGH
 CALL_TIMEOUT_S = int(os.environ.get("VALID_CALL_TIMEOUT", "30"))             # per Gemini call, no hidden retries
+
+# Model chain: tried in order. A model that just failed is skipped for COOLDOWN_S, so a dead model costs one slow call, not every call.
+FALLBACK_MODEL = os.environ.get("VALID_FALLBACK_MODEL", "gemini-3.6-flash")
+EXTRA_FALLBACK_MODEL = os.environ.get("VALID_EXTRA_FALLBACK_MODEL", "gemini-3.5-flash")
+MODEL_CHAIN = list(dict.fromkeys([ANSWER_MODEL, FALLBACK_MODEL, EXTRA_FALLBACK_MODEL]))
+FIRST_TIMEOUT_S = int(os.environ.get("VALID_FIRST_TIMEOUT", "15"))     # the first model gets less time
+COOLDOWN_S = int(os.environ.get("VALID_COOLDOWN", "300"))

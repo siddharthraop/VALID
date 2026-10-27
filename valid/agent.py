@@ -79,7 +79,7 @@ class Agent:
             try:
                 ans, usage = self.generator(question, scope, hits, prior, failures)
             except ModelUnavailable as e:
-                step(f"Gemini call {attempt + 1}", {"error": str(e), "tried": [config.ANSWER_MODEL, config.FALLBACK_MODEL]}, t)
+                step(f"Gemini call {attempt + 1}", {"error": str(e), "attempts": e.attempts}, t)
                 run["calls"] += 1
                 return done("unavailable", error={
                     "reason": "The answer model is busy right now (free-tier capacity). Nothing was answered.",
@@ -94,7 +94,8 @@ class Agent:
             run["tokens_out"] += usage["tokens_out"]
             run["model"] = usage.get("model", run["model"])
             step(f"Gemini call {attempt + 1}" + (" (revision)" if attempt else ""),
-                 {"answerable": ans.get("answerable"), "steps drafted": len(ans.get("steps") or [])}, t)
+                 {"model": usage.get("model"), "attempts": usage.get("attempts"),
+                  "answerable": ans.get("answerable"), "steps drafted": len(ans.get("steps") or [])}, t)
 
             if not ans.get("answerable", False):
                 return done("refuse", refusal={
